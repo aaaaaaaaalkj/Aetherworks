@@ -42,10 +42,16 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
     return () => ro.disconnect();
   }, []);
 
-  // Only plot well-formed samples, so one bad value can't blank the whole chart.
-  const points: HistoryPoint[] = [...history, [now, credits > 0 ? Math.log10(credits) : null, Math.log10(earned)]].filter(
-    (p): p is HistoryPoint => Number.isFinite(p[0]) && Number.isFinite(p[2]),
-  );
+  // Only plot well-formed samples, so bad values can't blank the chart. A sample
+  // with an invalid total falls back to the balance held at that moment.
+  const points: HistoryPoint[] = [];
+  for (const [t, held, total] of [...history, [now, credits > 0 ? Math.log10(credits) : null, Math.log10(earned)] as HistoryPoint]) {
+    if (!Number.isFinite(t)) continue;
+    const h = Number.isFinite(held) ? held : null;
+    const e = Number.isFinite(total) ? total : h;
+    if (e !== null) points.push([t, h, e]);
+  }
+
   const plotW = Math.max(50, width - M.left - M.right);
   const plotH = HEIGHT - M.top - M.bottom;
 
@@ -62,10 +68,12 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
   for (let v = 0; v <= yTop; v += yStep) yTicks.push(v);
   const xTicks = TIME_TICKS.filter(([t]) => t <= tMax);
 
+  // Samples sit a few percent apart in time; a far wider gap means lost data, so the
+  // line breaks there instead of bridging it.
   let heldPath = '';
   let earnedPath = '';
   points.forEach(([t, held, total], k) => {
-    const cmd = k ? 'L' : 'M';
+    const cmd = k === 0 || t > points[k - 1][0] * 3 + 60 ? 'M' : 'L';
     heldPath += `${cmd}${x(t).toFixed(1)},${y(held).toFixed(1)}`;
     earnedPath += `${cmd}${x(t).toFixed(1)},${y(total).toFixed(1)}`;
   });
