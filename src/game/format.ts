@@ -1,24 +1,23 @@
-const SUFFIXES = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
-
-/** Splits a credit amount into display digits and a magnitude suffix, e.g. 1234567 -> ["1.23", "M"]. */
-export function splitCredits(n: number): { digits: string; suffix: string } {
-  if (!Number.isFinite(n) || n < 0) n = 0;
-  if (n < 1e6) return { digits: Math.floor(n).toLocaleString('en-US'), suffix: '' };
-  const tier = Math.floor(Math.log10(n) / 3);
-  if (tier < SUFFIXES.length) {
-    const scaled = n / 10 ** (tier * 3);
-    const digits = scaled >= 100 ? scaled.toFixed(1) : scaled >= 10 ? scaled.toFixed(2) : scaled.toFixed(3);
-    return { digits, suffix: SUFFIXES[tier] };
-  }
-  const exp = Math.floor(Math.log10(n));
-  return { digits: (n / 10 ** exp).toFixed(3), suffix: `e${exp}` };
+/** Axis label for a power of ten, e.g. 45 -> "1e45". */
+export function decadeLabel(exp: number): string {
+  return exp < 4 ? String(10 ** exp) : `1e${exp}`;
 }
 
-export function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
+/** A value given by its log10, e.g. 45.3 -> "2.0e45". */
+export function formatLog(log10: number): string {
+  if (log10 < 4) return (10 ** log10).toFixed(log10 < 1 ? 2 : 0);
+  const exp = Math.floor(log10);
+  return `${(10 ** (log10 - exp)).toFixed(1)}e${exp}`;
+}
+
+/** Compact duration: 45s, 12m, 3h 20m, 4d 6h, 2y 30d. */
+export function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  const y = Math.floor(s / 31_536_000);
+  const d = Math.floor((s % 31_536_000) / 86_400);
+  const h = Math.floor((s % 86_400) / 3600);
   const m = Math.floor((s % 3600) / 60);
+  if (y > 0) return `${y}y ${d}d`;
   if (d > 0) return `${d}d ${h}h`;
   if (h > 0) return `${h}h ${m}m`;
   if (m > 0) return `${m}m ${s % 60}s`;

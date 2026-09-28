@@ -1,106 +1,61 @@
-// Every machine is fully described by two hidden functions of its level:
+// Every machine is fully described by two functions of its level:
 //   cost(L)       credits needed to go from level L-1 to level L   (L >= 1)
-//   production(L) credits per second produced at level L           (L >= 0, production(0) = 0)
-// None of these values are ever shown to the player.
-
-export type MachineKind =
-  | 'coil'
-  | 'gears'
-  | 'bloom'
-  | 'pump'
-  | 'prism'
-  | 'hourglass'
-  | 'orrery'
-  | 'singularity';
+//   production(L) credits per second produced at level L           (production(0) = 0)
+//
+// Economy design
+// --------------
+// Each machine climbs a very steep cost ladder: on average every level costs
+// 10^5.5 (~300,000x) more than the one before. A level pays for itself within
+// minutes to hours, but a machine's own output needs months to years to afford
+// its next level. Progress therefore comes from combining machines: the ladders
+// all share the same average step, and their offsets are interleaved so that
+// the union of all next levels forms a dense ladder (on average ~5x apart, never
+// more than ~14x). There is always some machine whose next level is within reach
+// of the combined production.
+//
+// Each ladder wobbles around the common average step in its own bounded pattern,
+// and each machine has its own efficiency, so which machine dominates production
+// keeps shifting.
+//
+// Payback time grows slowly with scale (production ~ cost^(1-k)), so the game
+// starts with purchases every minute or two and settles into hours, then days.
 
 export interface MachineDef {
-  kind: MachineKind;
   name: string;
-  epithet: string;
-  hue: string;
-  hue2: string;
   cost: (level: number) => number;
   production: (level: number) => number;
 }
 
-const zeroAtZero =
-  (f: (level: number) => number) =>
-  (level: number): number =>
-    level <= 0 ? 0 : f(level);
+/** Average number of decades between consecutive levels of one machine. */
+const STEP = 5.5;
 
+function machine(
+  name: string,
+  offset: number,
+  wobble: (n: number) => number,
+  paybackBase: number,
+  scaleDrag: number,
+): MachineDef {
+  const logCost = (L: number) => offset + STEP * (L - 1) + wobble(L - 1);
+  return {
+    name,
+    cost: (L) => 10 ** logCost(L),
+    production: (L) => (L <= 0 ? 0 : 10 ** (logCost(L) * (1 - scaleDrag)) / paybackBase),
+  };
+}
+
+// Offsets were found by searching for the arrangement that minimises the largest
+// gap in the combined ladder over the first ~240 decades of cost.
 export const MACHINES: MachineDef[] = [
-  {
-    kind: 'coil',
-    name: 'Spark Coil',
-    epithet: 'Lightning in a jar',
-    hue: '#5ee7ff',
-    hue2: '#b18cff',
-    cost: (L) => 10 * 1.13 ** (L - 1),
-    production: zeroAtZero((L) => L * 1.6 ** Math.floor(L / 25)),
-  },
-  {
-    kind: 'gears',
-    name: 'Gear Mill',
-    epithet: 'Teeth that never tire',
-    hue: '#ffb547',
-    hue2: '#ff7a3d',
-    cost: (L) => 140 * 1.15 ** (L - 1),
-    production: zeroAtZero((L) => 7 * L * 2 ** Math.floor(L / 10)),
-  },
-  {
-    kind: 'bloom',
-    name: 'Bloom Reactor',
-    epithet: 'A flower of fusion',
-    hue: '#ff5fa2',
-    hue2: '#ffd36e',
-    cost: (L) => 6_000 * 1.16 ** (L - 1) * (1 + L / 12),
-    production: zeroAtZero((L) => 50 * L ** 1.45),
-  },
-  {
-    kind: 'pump',
-    name: 'Tide Pump',
-    epithet: 'Draws the sea from nowhere',
-    hue: '#3ddc97',
-    hue2: '#2f9bff',
-    cost: (L) => 3e5 * 1.18 ** (L - 1),
-    production: zeroAtZero((L) => 330 * L ** 1.2 * 1.025 ** L),
-  },
-  {
-    kind: 'prism',
-    name: 'Prism Loom',
-    epithet: 'Weaves light into value',
-    hue: '#f5f0ff',
-    hue2: '#9d7bff',
-    cost: (L) => 9e6 * 1.2 ** (L - 1),
-    production: zeroAtZero((L) => 2_400 * L * 3 ** Math.floor(L / 15)),
-  },
-  {
-    kind: 'hourglass',
-    name: 'Hourglass Engine',
-    epithet: 'Sells borrowed seconds',
-    hue: '#ffd98a',
-    hue2: '#e0864a',
-    cost: (L) => 4e8 * 1.11 ** (L - 1) * L ** 1.6,
-    production: zeroAtZero((L) => 1.6e4 * L ** 1.85),
-  },
-  {
-    kind: 'orrery',
-    name: 'Grand Orrery',
-    epithet: 'Rents out the planets',
-    hue: '#8fb8ff',
-    hue2: '#ffcf5a',
-    cost: (L) => 2e10 * 1.23 ** (L - 1),
-    production: zeroAtZero((L) => 1.3e5 * L * 1.07 ** L),
-  },
-  {
-    kind: 'singularity',
-    name: 'Singularity Press',
-    epithet: 'Compresses nothing into everything',
-    hue: '#c77dff',
-    hue2: '#ff4d6d',
-    cost: (L) => 3e11 * 1.28 ** (L - 1),
-    production: zeroAtZero((L) => 1.1e6 * L ** 2.4),
-  },
+  machine('Coil', 0, () => 0, 8, 0.02),
+  machine('Mill', 1.14, () => 0, 16, 0.021),
+  machine('Reactor', 2.03, (n) => [0, -0.25, -0.5, 0.25][n % 4], 18, 0.021),
+  machine('Pump', 2.58, (n) => 0.35 * (n % 2), 22, 0.019),
+  machine('Loom', 3.34, (n) => 0.4 * Math.sin(n * 0.33), 28, 0.017),
+  machine('Engine', 3.91, (n) => 0.6 * ((n * 0.37) % 1) - 0.3, 20, 0.022),
+  machine('Orrery', 4.39, (n) => 0.35 * Math.sin(n * 1.9 + 1), 24, 0.02),
+  machine('Press', 4.76, (n) => 0.4 * Math.sin(n * 0.9), 26, 0.018),
 ];
 
-export const STARTING_CREDITS = 10;
+/** Exactly enough to build the first Coil. */
+export const STARTING_CREDITS = 1;
