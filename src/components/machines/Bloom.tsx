@@ -1,4 +1,4 @@
-import { type ArtProps, dur, GlowFilter } from './common';
+import { type ArtProps, dur } from './common';
 
 const CX = 100;
 const CY = 78;
@@ -27,7 +27,6 @@ export function Bloom({ tier, spd, hue, hue2 }: ArtProps) {
   return (
     <svg viewBox="0 0 200 160" className="art-svg">
       <defs>
-        <GlowFilter id="bloom-glow" blur={3} />
         <radialGradient id="bloom-core">
           <stop offset="0" stopColor="#fff" />
           <stop offset="0.4" stopColor={hue2} />
@@ -72,7 +71,7 @@ export function Bloom({ tier, spd, hue, hue2 }: ArtProps) {
 
       {/* Core */}
       <circle cx={CX} cy={CY} r={20} fill="url(#bloom-core)" className="a-pulse" style={{ animationDuration: dur(1.6, spd) }} />
-      <circle cx={CX} cy={CY} r={5} fill="#fff" filter="url(#bloom-glow)" />
+      <circle cx={CX} cy={CY} r={5} fill="#fff" />
 
       {/* Orbiting sparks */}
       {tier >= 1 && (
@@ -80,7 +79,7 @@ export function Bloom({ tier, spd, hue, hue2 }: ArtProps) {
           <circle cx={CX} cy={CY} r={48} fill="none" />
           {Array.from({ length: Math.min(8, tier * 2) }, (_, i) => {
             const a = (i / Math.min(8, tier * 2)) * Math.PI * 2;
-            return <circle key={i} cx={CX + Math.cos(a) * 48} cy={CY + Math.sin(a) * 48} r={2} fill="#fff" filter="url(#bloom-glow)" />;
+            return <circle key={i} cx={CX + Math.cos(a) * 48} cy={CY + Math.sin(a) * 48} r={2} fill="#fff" />;
           })}
         </g>
       )}
@@ -101,7 +100,6 @@ export function Bloom({ tier, spd, hue, hue2 }: ArtProps) {
             className="a-dash-long"
             style={{ animationDuration: dur(2.6, spd), animationDelay: `${i * 1.3}s` }}
             transform={`rotate(${i ? 30 : -30} ${CX} ${CY})`}
-            filter="url(#bloom-glow)"
           />
         ))}
     </svg>

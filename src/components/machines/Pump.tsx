@@ -1,4 +1,4 @@
-import { type ArtProps, dur, GlowFilter } from './common';
+import { type ArtProps, dur } from './common';
 
 function wavePath(top: number, amp: number, wavelength: number): string {
   let d = `M-200,${top}`;
@@ -22,7 +22,6 @@ export function Pump({ tier, spd, hue, hue2 }: ArtProps) {
   return (
     <svg viewBox="0 0 200 160" className="art-svg">
       <defs>
-        <GlowFilter id="pump-glow" blur={2} />
         <clipPath id="pump-tank">
           <rect x={42} y={34} width={90} height={106} rx={14} />
         </clipPath>
@@ -108,7 +107,6 @@ export function Pump({ tier, spd, hue, hue2 }: ArtProps) {
             cy={26}
             r={2.5}
             fill={hue}
-            filter="url(#pump-glow)"
             className="a-fountain"
             style={{ animationDuration: dur(1.2, spd), animationDelay: `${i * 0.4}s`, ['--fx' as string]: `${(i - 1) * 16}px` }}
           />

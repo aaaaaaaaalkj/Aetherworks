@@ -1,4 +1,4 @@
-import { type ArtProps, dur, GlowFilter } from './common';
+import { type ArtProps, dur } from './common';
 
 const SPECTRUM = ['#ff4d4d', '#ff9f43', '#ffe14d', '#4dff88', '#4dc3ff', '#6b6bff', '#c74dff'];
 
@@ -11,7 +11,6 @@ export function Prism({ tier, spd, hue, hue2 }: ArtProps) {
   return (
     <svg viewBox="0 0 200 160" className="art-svg">
       <defs>
-        <GlowFilter id="prism-glow" blur={2.5} />
         <linearGradient id="prism-glass" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#fff" stopOpacity="0.5" />
           <stop offset="0.5" stopColor={hue2} stopOpacity="0.18" />
@@ -32,11 +31,12 @@ export function Prism({ tier, spd, hue, hue2 }: ArtProps) {
       )}
       {/* Shuttle */}
       <g className="a-shuttle" style={{ animationDuration: dur(1.6, spd) }}>
-        <rect x={158} y={60} width={36} height={4} rx={2} fill={hue2} filter="url(#prism-glow)" />
+        <rect x={158} y={60} width={36} height={4} rx={2} fill={hue2} />
       </g>
 
       {/* Incoming beam */}
-      <line x1={0} y1={104} x2={86} y2={80} stroke="#fff" strokeWidth={3} filter="url(#prism-glow)" opacity={0.9} />
+      <line x1={0} y1={104} x2={86} y2={80} stroke="#fff" strokeWidth={9} opacity={0.12} />
+      <line x1={0} y1={104} x2={86} y2={80} stroke="#fff" strokeWidth={3} opacity={0.9} />
       <line x1={0} y1={104} x2={86} y2={80} stroke={hue} strokeWidth={1.2} strokeDasharray="6 12" className="a-dash" style={{ animationDuration: dur(0.5, spd) }} />
 
       {/* Spectrum fan */}
@@ -62,7 +62,7 @@ export function Prism({ tier, spd, hue, hue2 }: ArtProps) {
       )}
       <polygon points="100,34 64,116 136,116" fill="url(#prism-glass)" stroke="#fff" strokeOpacity={0.8} strokeWidth={1.5} />
       <polygon points="100,34 88,116 64,116" fill="#fff" opacity={0.08} />
-      <circle cx={100} cy={82} r={6} fill="#fff" filter="url(#prism-glow)" className="a-pulse" style={{ animationDuration: dur(2, spd) }} />
+      <circle cx={100} cy={82} r={6} fill="#fff" className="a-pulse" style={{ animationDuration: dur(2, spd) }} />
 
       {/* Stand */}
       <path d="M60,116 L140,116 L132,128 L68,128 Z" fill="#2a2440" stroke="#4a3f66" />

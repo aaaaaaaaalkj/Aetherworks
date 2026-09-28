@@ -1,4 +1,4 @@
-import { type ArtProps, dur, ellipsePath, GlowFilter } from './common';
+import { type ArtProps, dur, ellipsePath } from './common';
 
 const CX = 100;
 const CY = 74;
@@ -15,7 +15,6 @@ export function Orrery({ tier, spd, hue, hue2 }: ArtProps) {
   return (
     <svg viewBox="0 0 200 160" className="art-svg">
       <defs>
-        <GlowFilter id="orr-glow" blur={3} />
         <radialGradient id="orr-sun">
           <stop offset="0" stopColor="#fff" />
           <stop offset="0.45" stopColor={hue2} />
@@ -66,7 +65,7 @@ export function Orrery({ tier, spd, hue, hue2 }: ArtProps) {
           );
         })}
       </g>
-      <circle cx={CX} cy={CY} r={12} fill="url(#orr-sun)" filter="url(#orr-glow)" className="a-pulse" style={{ animationDuration: dur(3, spd) }} />
+      <circle cx={CX} cy={CY} r={12} fill="url(#orr-sun)" className="a-pulse" style={{ animationDuration: dur(3, spd) }} />
 
       {/* Planets */}
       {PLANETS.filter((p) => tier >= p.minTier).map((p) => {
@@ -93,7 +92,7 @@ export function Orrery({ tier, spd, hue, hue2 }: ArtProps) {
         <g>
           <animateMotion dur={`${(9 / spd).toFixed(2)}s`} repeatCount="indefinite" rotate="auto" path="M-20,20 Q100,-10 220,50" />
           <path d="M0,0 L-22,-2 L-22,2 Z" fill={hue} opacity={0.6} />
-          <circle r={2.4} fill="#fff" filter="url(#orr-glow)" />
+          <circle r={2.4} fill="#fff" />
         </g>
       )}
     </svg>

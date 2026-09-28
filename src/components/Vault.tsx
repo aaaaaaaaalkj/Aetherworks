@@ -5,6 +5,7 @@ export function Vault({ credits }: { credits: number }) {
   const { digits, suffix } = splitCredits(credits);
   return (
     <div className="vault" id="vault" aria-label="Credits">
+      <div className="vault-flash" />
       <div className="vault-label">Credits</div>
       <div className="tubes" role="img" aria-label={`${digits}${suffix}`}>
         {[...digits].map((ch, i) =>

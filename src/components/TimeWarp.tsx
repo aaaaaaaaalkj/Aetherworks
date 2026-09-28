@@ -17,10 +17,12 @@ interface Props {
   setSpeed: (s: number) => void;
   skip: (seconds: number) => void;
   reset: () => void;
+  lite: boolean;
+  setLite: (lite: boolean) => void;
 }
 
 /** Testing tool: fast-forward the flow of time. */
-export function TimeWarp({ open, onToggle, speed, setSpeed, skip, reset }: Props) {
+export function TimeWarp({ open, onToggle, speed, setSpeed, skip, reset, lite, setLite }: Props) {
   return (
     <div className={`warp${open ? ' open' : ''}${speed > 1 ? ' active' : ''}`}>
       {open && (
@@ -41,6 +43,15 @@ export function TimeWarp({ open, onToggle, speed, setSpeed, skip, reset }: Props
                 {label}
               </button>
             ))}
+          </div>
+          <div className="warp-sub">Visual effects</div>
+          <div className="warp-row warp-row-2">
+            <button className={lite ? '' : 'on'} onClick={() => setLite(false)}>
+              Full
+            </button>
+            <button className={lite ? 'on' : ''} onClick={() => setLite(true)} title="Machines animate only while hovered">
+              Lite
+            </button>
           </div>
           <button
             className="warp-reset"

@@ -44,7 +44,8 @@ export function burst(index: number): void {
   burstImpl(index);
 }
 
-const artRect = (i: number) => document.getElementById(`art-${i}`)?.getBoundingClientRect();
+const MAX_MOTES = 220;
+const RECT_REFRESH_MS = 300;
 
 /**
  * A full-screen overlay where credits visibly flow as glowing motes from each machine
@@ -67,9 +68,28 @@ export function FlowCanvas({ sources }: { sources: () => FlowSource[] }) {
     let lastHit = 0;
     let w = 0;
     let h = 0;
+    let drewLastFrame = false;
+
+    // Element positions are cached and refreshed on a timer or scroll, so the
+    // animation loop never forces a synchronous layout.
+    let arts: (DOMRect | undefined)[] = [];
+    let vault: DOMRect | undefined;
+    let flash: HTMLElement | null = null;
+    let rectsAt = -Infinity;
+    const refreshRects = () => {
+      arts = sourcesRef.current().map((_, i) => document.getElementById(`art-${i}`)?.getBoundingClientRect());
+      vault = document.getElementById('vault')?.getBoundingClientRect();
+      flash = document.querySelector('.vault-flash');
+      rectsAt = performance.now();
+    };
+    const invalidateRects = () => {
+      rectsAt = -Infinity;
+    };
+    window.addEventListener('scroll', invalidateRects, { passive: true });
 
     const resize = () => {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      invalidateRects();
+      const dpr = Math.min(1.5, window.devicePixelRatio || 1);
       w = window.innerWidth;
       h = window.innerHeight;
       canvas.width = w * dpr;
@@ -80,7 +100,8 @@ export function FlowCanvas({ sources }: { sources: () => FlowSource[] }) {
     window.addEventListener('resize', resize);
 
     burstImpl = (i) => {
-      const r = artRect(i);
+      refreshRects();
+      const r = arts[i];
       const src = sourcesRef.current()[i];
       if (!r || !src) return;
       const x = r.left + r.width / 2;
@@ -93,24 +114,20 @@ export function FlowCanvas({ sources }: { sources: () => FlowSource[] }) {
       }
     };
 
-    const vaultCenter = () => {
-      const v = document.getElementById('vault')?.getBoundingClientRect();
-      return v ? { x: v.left + v.width / 2, y: v.top + v.height / 2, el: document.getElementById('vault')! } : null;
-    };
-
     const frame = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      const target = vaultCenter();
+      if (now - rectsAt > RECT_REFRESH_MS) refreshRects();
+      const target = vault ? { x: vault.left + vault.width / 2, y: vault.top + vault.height / 2 } : null;
       const srcs = sourcesRef.current();
 
       // Emit motes from every running machine that's on screen.
       srcs.forEach((s, i) => {
-        if (s.rate <= 0 || motes.length > 500) return;
+        if (s.rate <= 0 || motes.length > MAX_MOTES) return;
         acc[i] = (acc[i] ?? 0) + s.rate * dt;
         while (acc[i] >= 1) {
           acc[i] -= 1;
-          const r = artRect(i);
+          const r = arts[i];
           if (!r || r.bottom < 0 || r.top > h || !target) continue;
           const x0 = r.left + r.width * (0.3 + Math.random() * 0.4);
           const y0 = r.top + r.height * (0.3 + Math.random() * 0.4);
@@ -128,6 +145,12 @@ export function FlowCanvas({ sources }: { sources: () => FlowSource[] }) {
         }
       });
 
+      const busy = motes.length + sparks.length + rings.length > 0;
+      if (!busy && !drewLastFrame) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      drewLastFrame = busy;
       ctx.clearRect(0, 0, w, h);
       ctx.globalCompositeOperation = 'lighter';
 
@@ -141,12 +164,9 @@ export function FlowCanvas({ sources }: { sources: () => FlowSource[] }) {
         m.t += dt / m.life;
         if (m.t >= 1 || !target) {
           motes.splice(k, 1);
-          if (target && now - lastHit > 90) {
+          if (flash && now - lastHit > 140) {
             lastHit = now;
-            target.el.animate(
-              [{ filter: 'brightness(1.35)' }, { filter: 'brightness(1)' }],
-              { duration: 260, easing: 'ease-out' },
-            );
+            flash.animate([{ opacity: 0.8 }, { opacity: 0 }], { duration: 300, easing: 'ease-out' });
           }
           continue;
         }
@@ -216,6 +236,7 @@ export function FlowCanvas({ sources }: { sources: () => FlowSource[] }) {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
+      window.removeEventListener('scroll', invalidateRects);
       burstImpl = () => {};
     };
   }, []);

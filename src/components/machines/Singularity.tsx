@@ -1,4 +1,4 @@
-import { type ArtProps, dur, GlowFilter } from './common';
+import { type ArtProps, dur } from './common';
 
 const CX = 100;
 const CY = 80;
@@ -39,7 +39,6 @@ export function Singularity({ tier, spd, hue, hue2 }: ArtProps) {
   return (
     <svg viewBox="0 0 200 160" className="art-svg">
       <defs>
-        <GlowFilter id="sing-glow" blur={3} />
         <clipPath id="sing-front">
           <rect x={0} y={CY} width={200} height={80} />
         </clipPath>
@@ -62,11 +61,10 @@ export function Singularity({ tier, spd, hue, hue2 }: ArtProps) {
       {/* Relativistic jets */}
       {tier >= 3 && (
         <g className="a-jet" style={{ animationDuration: dur(1.4, spd) }}>
-          <polygon points={`${CX - 4},${CY - 20} ${CX + 4},${CY - 20} ${CX + 1},0 ${CX - 1},0`} fill="url(#sing-jet)" filter="url(#sing-glow)" />
+          <polygon points={`${CX - 4},${CY - 20} ${CX + 4},${CY - 20} ${CX + 1},0 ${CX - 1},0`} fill="url(#sing-jet)" />
           <polygon
             points={`${CX - 4},${CY + 20} ${CX + 4},${CY + 20} ${CX + 1},160 ${CX - 1},160`}
             fill="url(#sing-jet-down)"
-            filter="url(#sing-glow)"
           />
         </g>
       )}
@@ -79,7 +77,7 @@ export function Singularity({ tier, spd, hue, hue2 }: ArtProps) {
 
       {/* Event horizon */}
       <circle cx={CX} cy={CY} r={22} fill="#000" />
-      <circle cx={CX} cy={CY} r={23} fill="none" stroke="#fff" strokeOpacity={0.9} strokeWidth={1.2} filter="url(#sing-glow)" />
+      <circle cx={CX} cy={CY} r={23} fill="none" stroke="#fff" strokeOpacity={0.9} strokeWidth={1.2} />
 
       {/* Front of accretion disk, drawn over the horizon */}
       <g clipPath="url(#sing-front)">
@@ -89,7 +87,7 @@ export function Singularity({ tier, spd, hue, hue2 }: ArtProps) {
       {/* Infalling matter */}
       {tier >= 1 &&
         Array.from({ length: Math.min(6, tier + 1) }, (_, i) => (
-          <circle key={i} r={1.8} fill="#fff" filter="url(#sing-glow)">
+          <circle key={i} r={1.8} fill="#fff">
             <animateMotion
               dur={`${(3 / spd).toFixed(2)}s`}
               begin={`${(i * 0.5).toFixed(1)}s`}

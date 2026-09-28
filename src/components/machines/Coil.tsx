@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { type ArtProps, boltPath, dur, GlowFilter } from './common';
+import { type ArtProps, boltPath, dur } from './common';
 
 export function Coil({ tier, spd, hue, hue2 }: ArtProps) {
   const bolts = useMemo(() => {
@@ -15,7 +15,6 @@ export function Coil({ tier, spd, hue, hue2 }: ArtProps) {
   return (
     <svg viewBox="0 0 200 160" className="art-svg">
       <defs>
-        <GlowFilter id="coil-glow" blur={2.4} />
         <linearGradient id="coil-metal" x1="0" x2="1">
           <stop offset="0" stopColor="#2a3446" />
           <stop offset="0.45" stopColor="#8a97b3" />
@@ -51,7 +50,6 @@ export function Coil({ tier, spd, hue, hue2 }: ArtProps) {
               stroke={hue2}
               strokeWidth={1.6}
               fill="none"
-              filter="url(#coil-glow)"
             />
           ))}
         </g>
@@ -72,20 +70,20 @@ export function Coil({ tier, spd, hue, hue2 }: ArtProps) {
       <ellipse cx={100} cy={49} rx={24} ry={5} fill="#0b0f18" opacity={0.6} />
       <circle cx={100} cy={46} r={18} fill="url(#coil-core)" className="a-pulse" style={{ animationDuration: dur(1.6, spd) }} />
 
-      {/* Lightning */}
-      <g filter="url(#coil-glow)">
-        {bolts.map((b, i) => (
-          <path
-            key={i}
-            d={b.d}
-            className="a-flicker"
-            style={{ animationDuration: dur(1.4, spd), animationDelay: `${b.delay}s` }}
-            stroke={i % 3 === 2 ? hue2 : hue}
-            strokeWidth={1.4}
-            fill="none"
-          />
-        ))}
-      </g>
+      {/* Lightning: a wide faint stroke under a thin bright one fakes a glow cheaply */}
+      {bolts.map((b, i) => (
+        <g
+          key={i}
+          className="a-flicker"
+          style={{ animationDuration: dur(1.4, spd), animationDelay: `${b.delay}s` }}
+          stroke={i % 3 === 2 ? hue2 : hue}
+          fill="none"
+        >
+          <path d={b.d} strokeWidth={5} strokeOpacity={0.25} />
+          <path d={b.d} strokeWidth={1.4} />
+          <path d={b.d} strokeWidth={0.5} stroke="#fff" />
+        </g>
+      ))}
 
       {/* Orbiting motes at high tiers */}
       {tier >= 4 && (
@@ -93,7 +91,7 @@ export function Coil({ tier, spd, hue, hue2 }: ArtProps) {
           <circle cx={100} cy={46} r={46} fill="none" />
           {Array.from({ length: tier === 5 ? 6 : 3 }, (_, i) => {
             const a = (i / (tier === 5 ? 6 : 3)) * Math.PI * 2;
-            return <circle key={i} cx={100 + Math.cos(a) * 46} cy={46 + Math.sin(a) * 46} r={2.4} fill="#fff" filter="url(#coil-glow)" />;
+            return <circle key={i} cx={100 + Math.cos(a) * 46} cy={46 + Math.sin(a) * 46} r={2.4} fill="#fff" />;
           })}
         </g>
       )}

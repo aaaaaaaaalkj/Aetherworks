@@ -7,8 +7,19 @@ import { buy, canBuy, clearSave, freshState, isUnlocked, loadGame, saveGame, tot
 import { formatDuration } from './game/format';
 import { MACHINES } from './game/machines';
 
-const RENDER_INTERVAL_MS = 80;
+const RENDER_INTERVAL_MS = 100;
 const SAVE_INTERVAL_MS = 5000;
+const LITE_KEY = 'aetherworks.lite';
+
+function initialLite(): boolean {
+  try {
+    const stored = localStorage.getItem(LITE_KEY);
+    if (stored !== null) return stored === '1';
+  } catch {
+    // storage blocked
+  }
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+}
 
 export default function App() {
   const [boot] = useState(loadGame);
@@ -17,6 +28,17 @@ export default function App() {
   const speedRef = useRef(1);
   const [speed, setSpeedState] = useState(1);
   const [warpOpen, setWarpOpen] = useState(false);
+  const [lite, setLiteState] = useState(initialLite);
+  const liteRef = useRef(lite);
+  const setLite = (v: boolean) => {
+    liteRef.current = v;
+    setLiteState(v);
+    try {
+      localStorage.setItem(LITE_KEY, v ? '1' : '0');
+    } catch {
+      // storage blocked
+    }
+  };
   const [away, setAway] = useState(boot.awayMs > 60_000 ? boot.awayMs : 0);
   const [, setFrame] = useState(0);
   const rerender = useCallback(() => setFrame((f) => f + 1), []);
@@ -115,12 +137,12 @@ export default function App() {
   const sources = (): FlowSource[] =>
     MACHINES.map((m, i) => {
       const p = m.production(game.current.levels[i]);
-      const r = p > 0 ? Math.min(14, 0.8 + Math.log10(1 + p) * 0.9) * Math.min(3, 1 + Math.log10(speedRef.current) * 0.4) : 0;
+      const r = p > 0 ? Math.min(7, 0.6 + Math.log10(1 + p) * 0.5) * Math.min(2, 1 + Math.log10(speedRef.current) * 0.25) * (liteRef.current ? 0.3 : 1) : 0;
       return { rate: r, hue: m.hue, hue2: m.hue2 };
     });
 
   return (
-    <div className={`app${speed > 1 ? ' warping' : ''}`}>
+    <div className={`app${speed > 1 ? ' warping' : ''}${lite ? ' lite' : ''}`}>
       <div className="backdrop" aria-hidden="true">
         <div className="stars" />
         <div className="grid-floor" />
@@ -150,7 +172,7 @@ export default function App() {
 
       <main className="floor">
         {MACHINES.slice(0, visible).map((m, i) => (
-          <MachineCard key={m.kind} def={m} index={i} level={state.levels[i]} ready={ready[i]} warp={speed} onBuy={purchase} />
+          <MachineCard key={m.kind} def={m} index={i} level={state.levels[i]} ready={ready[i]} warp={speed} lite={lite} onBuy={purchase} />
         ))}
         {visible < MACHINES.length && <LockedCard />}
       </main>
@@ -166,7 +188,7 @@ export default function App() {
       )}
 
       <FlowCanvas sources={sources} />
-      <TimeWarp open={warpOpen} onToggle={() => setWarpOpen((o) => !o)} speed={speed} setSpeed={setSpeed} skip={skip} reset={reset} />
+      <TimeWarp open={warpOpen} onToggle={() => setWarpOpen((o) => !o)} speed={speed} setSpeed={setSpeed} skip={skip} reset={reset} lite={lite} setLite={setLite} />
     </div>
   );
 }

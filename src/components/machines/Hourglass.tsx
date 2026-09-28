@@ -1,4 +1,4 @@
-import { type ArtProps, dur, GlowFilter } from './common';
+import { type ArtProps, dur } from './common';
 
 const CX = 100;
 const CY = 80;
@@ -9,7 +9,6 @@ export function Hourglass({ tier, spd, hue, hue2 }: ArtProps) {
   return (
     <svg viewBox="0 0 200 160" className="art-svg">
       <defs>
-        <GlowFilter id="hg-glow" blur={2} />
         <linearGradient id="hg-sand" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={hue} />
           <stop offset="1" stopColor={hue2} />
@@ -100,7 +99,7 @@ export function Hourglass({ tier, spd, hue, hue2 }: ArtProps) {
           <rect key={x} x={x - 2.5} y={31} width={5} height={98} rx={2} fill={frame} stroke="#2a1608" />
         ))}
         {tier >= 4 &&
-          [26, 134].map((y) => <circle key={y} cx={CX} cy={y} r={3} fill={hue} filter="url(#hg-glow)" />)}
+          [26, 134].map((y) => <circle key={y} cx={CX} cy={y} r={3} fill={hue} />)}
       </g>
 
       {/* Drifting time motes */}
@@ -112,7 +111,6 @@ export function Hourglass({ tier, spd, hue, hue2 }: ArtProps) {
             cy={148}
             r={1.6}
             fill={hue}
-            filter="url(#hg-glow)"
             className="a-bubble"
             style={{ animationDuration: dur(3.5 + (i % 3) * 0.7, spd), animationDelay: `${i * 0.6}s` }}
           />

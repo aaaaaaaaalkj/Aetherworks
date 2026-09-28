@@ -67,17 +67,5 @@ export function ellipsePath(cx: number, cy: number, rx: number, ry: number): str
   return `M${cx - rx},${cy} a${rx},${ry} 0 1,0 ${rx * 2},0 a${rx},${ry} 0 1,0 ${-rx * 2},0`;
 }
 
-export function GlowFilter({ id, blur = 2.2 }: { id: string; blur?: number }) {
-  return (
-    <filter id={id} x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation={blur} result="b" />
-      <feMerge>
-        <feMergeNode in="b" />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-  );
-}
-
 /** Seconds for a CSS animation, scaled by the machine's cosmetic speed. */
 export const dur = (base: number, spd: number) => `${(base / spd).toFixed(3)}s`;
