@@ -70,6 +70,8 @@ function record(state: GameState, force = false): void {
 
 /** Advances game time, sub-stepping long jumps so the history curve stays smooth. */
 export function advance(state: GameState, dt: number, rate: number): void {
+  // Self-heal a state that predates the running total (e.g. kept alive across a hot reload).
+  if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels);
   let remaining = dt;
   while (remaining > 0) {
     const step = Math.min(remaining, Math.max(1, state.time * 0.02));
@@ -91,6 +93,18 @@ export function buy(state: GameState, i: number): boolean {
   return true;
 }
 
+/** Drops unusable samples and fills in a missing total from the held balance. */
+function cleanHistory(history: unknown[]): HistoryPoint[] {
+  const out: HistoryPoint[] = [];
+  for (const p of history) {
+    if (!Array.isArray(p) || !Number.isFinite(p[0])) continue;
+    const held = Number.isFinite(p[1]) ? (p[1] as number) : null;
+    const earned = Number.isFinite(p[2]) ? (p[2] as number) : held;
+    if (earned !== null) out.push([p[0], held, earned]);
+  }
+  return out;
+}
+
 /** Loads the save and credits the time spent away. */
 export function loadGame(): { state: GameState; awaySeconds: number } {
   try {
@@ -105,7 +119,7 @@ export function loadGame(): { state: GameState; awaySeconds: number } {
         earned: Number.isFinite(s.earned) ? s.earned : credits + spentOn(levels),
         levels,
         time: s.time ?? 0,
-        history: Array.isArray(s.history) ? s.history.map(([t, held, earned]) => [t, held, earned ?? held ?? 0]) : [],
+        history: Array.isArray(s.history) ? cleanHistory(s.history) : [],
         purchases: Array.isArray(s.purchases) ? s.purchases : [],
         savedAt: s.savedAt ?? Date.now(),
       };

@@ -42,7 +42,10 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
     return () => ro.disconnect();
   }, []);
 
-  const points: HistoryPoint[] = [...history, [now, credits > 0 ? Math.log10(credits) : null, Math.log10(earned)]];
+  // Only plot well-formed samples, so one bad value can't blank the whole chart.
+  const points: HistoryPoint[] = [...history, [now, credits > 0 ? Math.log10(credits) : null, Math.log10(earned)]].filter(
+    (p): p is HistoryPoint => Number.isFinite(p[0]) && Number.isFinite(p[2]),
+  );
   const plotW = Math.max(50, width - M.left - M.right);
   const plotH = HEIGHT - M.top - M.bottom;
 
