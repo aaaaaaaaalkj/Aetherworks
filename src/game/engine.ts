@@ -1,10 +1,12 @@
 import { MACHINES, STARTING_CREDITS } from './machines';
 
-/** [game time in seconds, log10(credits) or null when the balance is empty] */
-export type HistoryPoint = [number, number | null];
+/** [game time in seconds, log10(credits held) or null when empty, log10(credits earned in total)] */
+export type HistoryPoint = [number, number | null, number];
 
 export interface GameState {
   credits: number;
+  /** Everything ever produced, including what was spent. */
+  earned: number;
   levels: number[];
   /** Game seconds since the start, including warped and skipped time. */
   time: number;
@@ -20,9 +22,10 @@ const HISTORY_LIMIT = 2400;
 export function freshState(): GameState {
   return {
     credits: STARTING_CREDITS,
+    earned: STARTING_CREDITS,
     levels: MACHINES.map(() => 0),
     time: 0,
-    history: [[0, Math.log10(STARTING_CREDITS)]],
+    history: [[0, Math.log10(STARTING_CREDITS), Math.log10(STARTING_CREDITS)]],
     purchases: [],
     savedAt: Date.now(),
   };
@@ -42,6 +45,14 @@ export function canBuy(state: GameState, i: number): boolean {
 
 const logCredits = (c: number) => (c > 0 ? Math.log10(c) : null);
 
+function spentOn(levels: number[]): number {
+  let total = 0;
+  levels.forEach((level, i) => {
+    for (let L = 1; L <= level; L++) total += MACHINES[i].cost(L);
+  });
+  return total;
+}
+
 /**
  * Appends a history sample. Samples are spaced ~1% apart in time, which is
  * uniform on the chart's logarithmic time axis.
@@ -49,7 +60,7 @@ const logCredits = (c: number) => (c > 0 ? Math.log10(c) : null);
 function record(state: GameState, force = false): void {
   const last = state.history[state.history.length - 1];
   if (!force && last && state.time < last[0] * 1.01 + 0.5) return;
-  state.history.push([state.time, logCredits(state.credits)]);
+  state.history.push([state.time, logCredits(state.credits), Math.log10(state.earned)]);
   if (state.history.length > HISTORY_LIMIT) {
     // Thin the oldest part; the newest stretch keeps full detail.
     const cut = Math.floor(state.history.length * 0.6);
@@ -63,6 +74,7 @@ export function advance(state: GameState, dt: number, rate: number): void {
   while (remaining > 0) {
     const step = Math.min(remaining, Math.max(1, state.time * 0.02));
     state.credits += rate * step;
+    state.earned += rate * step;
     state.time += step;
     remaining -= step;
     record(state);
@@ -85,11 +97,15 @@ export function loadGame(): { state: GameState; awaySeconds: number } {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw) as GameState;
+      const levels = MACHINES.map((_, i) => Math.max(0, Math.floor(s.levels?.[i] ?? 0)));
+      const credits = Number.isFinite(s.credits) ? s.credits : STARTING_CREDITS;
       const state: GameState = {
-        credits: Number.isFinite(s.credits) ? s.credits : STARTING_CREDITS,
-        levels: MACHINES.map((_, i) => Math.max(0, Math.floor(s.levels?.[i] ?? 0))),
+        credits,
+        // Older saves lack a running total; it is recoverable from what was bought.
+        earned: Number.isFinite(s.earned) ? s.earned : credits + spentOn(levels),
+        levels,
         time: s.time ?? 0,
-        history: Array.isArray(s.history) ? s.history : [],
+        history: Array.isArray(s.history) ? s.history.map(([t, held, earned]) => [t, held, earned ?? held ?? 0]) : [],
         purchases: Array.isArray(s.purchases) ? s.purchases : [],
         savedAt: s.savedAt ?? Date.now(),
       };

@@ -319,10 +319,6 @@ kbd {
   color: var(--text-muted);
 }
 
-.legend-val {
-  font-family: var(--mono);
-  color: var(--text-secondary);
-}
 
 /* chart */
 
@@ -347,11 +343,49 @@ kbd {
   font: 11px var(--mono);
 }
 
-.credit-line {
+.chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin-bottom: 8px;
+}
+
+.chart-head h2 {
+  margin: 0;
+}
+
+.chart-head .legend {
+  margin: 0;
+}
+
+.line-key {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 2px solid var(--text-primary);
+}
+
+.line-key.held {
+  border-top: 1px solid var(--text-muted);
+}
+
+.earned-line,
+.held-line {
   fill: none;
+  stroke-linejoin: round;
+}
+
+.earned-line {
   stroke: var(--text-primary);
   stroke-width: 2;
-  stroke-linejoin: round;
+}
+
+.held-line {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  opacity: 0.7;
 }
 
 .crosshair line {
@@ -375,6 +409,10 @@ kbd {
   font-size: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   white-space: nowrap;
+}
+
+.tooltip-sub {
+  color: var(--text-secondary);
 }
 
 .tooltip-k {

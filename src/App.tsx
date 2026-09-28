@@ -134,7 +134,7 @@ export default function App() {
       <main className="layout">
         <Tank levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
         <Contribution levels={s.levels} />
-        <CreditChart history={s.history} purchases={s.purchases} now={s.time} credits={s.credits} />
+        <CreditChart history={s.history} purchases={s.purchases} now={s.time} credits={s.credits} earned={s.earned} />
         <p className="hint">
           A bar fully under the water line can be bought: click it or press <kbd>1</kbd>–<kbd>8</kbd>.
         </p>

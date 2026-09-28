@@ -8,6 +8,7 @@ interface Props {
   purchases: [number, number][];
   now: number;
   credits: number;
+  earned: number;
 }
 
 const HEIGHT = 260;
@@ -29,7 +30,7 @@ const TIME_TICKS: [number, string][] = [
 ];
 
 /** Credits (log) against time since the start (log, so the past compresses). */
-export function CreditChart({ history, purchases, now, credits }: Props) {
+export function CreditChart({ history, purchases, now, credits, earned }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -41,7 +42,7 @@ export function CreditChart({ history, purchases, now, credits }: Props) {
     return () => ro.disconnect();
   }, []);
 
-  const points: HistoryPoint[] = [...history, [now, credits > 0 ? Math.log10(credits) : null]];
+  const points: HistoryPoint[] = [...history, [now, credits > 0 ? Math.log10(credits) : null, Math.log10(earned)]];
   const plotW = Math.max(50, width - M.left - M.right);
   const plotH = HEIGHT - M.top - M.bottom;
 
@@ -49,7 +50,7 @@ export function CreditChart({ history, purchases, now, credits }: Props) {
   const xLog = (t: number) => Math.log10(Math.max(1, t));
   const x = (t: number) => M.left + (xLog(t) / xLog(tMax)) * plotW;
 
-  const maxY = Math.max(1, ...points.map((p) => p[1] ?? 0));
+  const maxY = Math.max(1, ...points.map((p) => p[2]));
   const yTop = Math.ceil(maxY + 0.3);
   const y = (v: number | null) => M.top + plotH - (Math.max(0, v ?? 0) / yTop) * plotH;
 
@@ -58,9 +59,12 @@ export function CreditChart({ history, purchases, now, credits }: Props) {
   for (let v = 0; v <= yTop; v += yStep) yTicks.push(v);
   const xTicks = TIME_TICKS.filter(([t]) => t <= tMax);
 
-  let d = '';
-  points.forEach(([t, v], k) => {
-    d += `${k ? 'L' : 'M'}${x(t).toFixed(1)},${y(v).toFixed(1)}`;
+  let heldPath = '';
+  let earnedPath = '';
+  points.forEach(([t, held, total], k) => {
+    const cmd = k ? 'L' : 'M';
+    heldPath += `${cmd}${x(t).toFixed(1)},${y(held).toFixed(1)}`;
+    earnedPath += `${cmd}${x(t).toFixed(1)},${y(total).toFixed(1)}`;
   });
 
   // Hover: nearest sample by x position.
@@ -86,7 +90,19 @@ export function CreditChart({ history, purchases, now, credits }: Props) {
 
   return (
     <section className="panel">
-      <h2>Credits over time</h2>
+      <div className="chart-head">
+        <h2>Credits over time</h2>
+        <ul className="legend">
+          <li>
+            <span className="line-key earned" />
+            Earned in total
+          </li>
+          <li>
+            <span className="line-key held" />
+            Held
+          </li>
+        </ul>
+      </div>
       <div className="chart" ref={wrapRef}>
         <svg width={width} height={HEIGHT} onPointerMove={onMove} onPointerLeave={() => setHoverX(null)} role="img" aria-label="Credits over time, both axes logarithmic">
           {yTicks.map((v) => (
@@ -106,7 +122,8 @@ export function CreditChart({ history, purchases, now, credits }: Props) {
             </g>
           ))}
           <line x1={M.left} x2={M.left + plotW} y1={M.top + plotH} y2={M.top + plotH} className="axis" />
-          <path d={d} className="credit-line" />
+          <path d={heldPath} className="held-line" />
+          <path d={earnedPath} className="earned-line" />
 
           {/* Purchases, one tick per level bought, in the machine's colour */}
           {purchases.map(([t, i], k) => (
@@ -126,17 +143,18 @@ export function CreditChart({ history, purchases, now, credits }: Props) {
           {hover && (
             <g className="crosshair">
               <line x1={x(hover[0])} x2={x(hover[0])} y1={M.top} y2={M.top + plotH} />
-              <circle cx={x(hover[0])} cy={y(hover[1])} r={4} />
+              <circle cx={x(hover[0])} cy={y(hover[2])} r={4} />
             </g>
           )}
         </svg>
         {hover && (
           <div
             className="tooltip"
-            style={{ left: Math.min(x(hover[0]) + 12, width - 150), top: Math.max(0, y(hover[1]) - 44) }}
+            style={{ left: Math.min(x(hover[0]) + 12, width - 170), top: Math.max(0, y(hover[2]) - 60) }}
           >
             <div className="tooltip-k">{formatDuration(hover[0])}</div>
-            <div>{hover[1] === null ? 'empty' : `${formatLog(hover[1])} credits`}</div>
+            <div>Earned {formatLog(hover[2])}</div>
+            <div className="tooltip-sub">Held {hover[1] === null ? '0' : formatLog(hover[1])}</div>
           </div>
         )}
       </div>
