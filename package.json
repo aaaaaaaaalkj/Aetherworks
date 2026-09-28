@@ -1,0 +1,28 @@
+{
+  "name": "aetherworks",
+  "private": true,
+  "version": "0.1.0",
+  "description": "An idle game of strange machines that turn time into credits.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port=3001 --host=0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/orbitron": "^5.2.0",
+    "@fontsource-variable/space-grotesk": "^5.2.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}
