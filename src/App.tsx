@@ -84,7 +84,7 @@ export default function App() {
   }, [purchase]);
 
   const skip = (seconds: number) => {
-    advance(game.current, seconds, rate.current);
+    advance(game.current, seconds, rate.current, true);
     rerender();
   };
 

@@ -15,21 +15,25 @@ const HEIGHT = 260;
 const M = { top: 12, right: 16, bottom: 44, left: 52 };
 const RUG = 10;
 
-const TIME_TICKS: [number, string][] = [
-  [1, '1s'],
-  [10, '10s'],
-  [60, '1m'],
-  [600, '10m'],
-  [3600, '1h'],
-  [21_600, '6h'],
-  [86_400, '1d'],
-  [604_800, '1w'],
-  [2_592_000, '30d'],
-  [31_536_000, '1y'],
-  [315_360_000, '10y'],
+/** Ages (seconds before now) marked on the time axis. */
+const AGE_TICKS: [number, string][] = [
+  [0, 'now'],
+  [10, '−10s'],
+  [60, '−1m'],
+  [600, '−10m'],
+  [3600, '−1h'],
+  [21_600, '−6h'],
+  [86_400, '−1d'],
+  [604_800, '−1w'],
+  [2_592_000, '−30d'],
+  [31_536_000, '−1y'],
 ];
+const MIN_TICK_GAP = 34;
 
-/** Credits (log) against time since the start (log, so the past compresses). */
+/**
+ * Credits (log) against how long ago (log): now is the right edge, the recent past
+ * is expanded and the start of the game is compressed at the left.
+ */
 export function CreditChart({ history, purchases, now, credits, earned }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
@@ -55,9 +59,9 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
   const plotW = Math.max(50, width - M.left - M.right);
   const plotH = HEIGHT - M.top - M.bottom;
 
-  const tMax = Math.max(60, now);
-  const xLog = (t: number) => Math.log10(Math.max(1, t));
-  const x = (t: number) => M.left + (xLog(t) / xLog(tMax)) * plotW;
+  const ageLog = (age: number) => Math.log10(1 + Math.max(0, age));
+  const span = ageLog(Math.max(60, now));
+  const x = (t: number) => M.left + plotW * (1 - ageLog(now - t) / span);
 
   const maxY = Math.max(1, ...points.map((p) => p[2]));
   const yTop = Math.ceil(maxY + 0.3);
@@ -66,14 +70,17 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
   const yStep = [1, 2, 5, 10, 20, 25, 50, 100].find((s) => yTop / s <= 6) ?? 100;
   const yTicks: number[] = [];
   for (let v = 0; v <= yTop; v += yStep) yTicks.push(v);
-  const xTicks = TIME_TICKS.filter(([t]) => t <= tMax);
+  const xTicks: [number, string][] = [];
+  for (const [age, label] of AGE_TICKS) {
+    if (age > Math.max(60, now)) break;
+    const prev = xTicks[xTicks.length - 1];
+    if (!prev || x(now - prev[0]) - x(now - age) >= MIN_TICK_GAP) xTicks.push([age, label]);
+  }
 
-  // Samples sit a few percent apart in time; a far wider gap means lost data, so the
-  // line breaks there instead of bridging it.
   let heldPath = '';
   let earnedPath = '';
   points.forEach(([t, held, total], k) => {
-    const cmd = k === 0 || t > points[k - 1][0] * 3 + 60 ? 'M' : 'L';
+    const cmd = k === 0 ? 'M' : 'L';
     heldPath += `${cmd}${x(t).toFixed(1)},${y(held).toFixed(1)}`;
     earnedPath += `${cmd}${x(t).toFixed(1)},${y(total).toFixed(1)}`;
   });
@@ -115,7 +122,7 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
         </ul>
       </div>
       <div className="chart" ref={wrapRef}>
-        <svg width={width} height={HEIGHT} onPointerMove={onMove} onPointerLeave={() => setHoverX(null)} role="img" aria-label="Credits over time, both axes logarithmic">
+        <svg width={width} height={HEIGHT} onPointerMove={onMove} onPointerLeave={() => setHoverX(null)} role="img" aria-label="Credits over time; time runs to now at the right, both axes logarithmic">
           {yTicks.map((v) => (
             <g key={v}>
               <line x1={M.left} x2={M.left + plotW} y1={y(v)} y2={y(v)} className="grid" />
@@ -124,10 +131,10 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
               </text>
             </g>
           ))}
-          {xTicks.map(([t, label]) => (
-            <g key={t}>
-              <line x1={x(t)} x2={x(t)} y1={M.top} y2={M.top + plotH} className="grid" />
-              <text x={x(t)} y={M.top + plotH + 14} className="tick" textAnchor="middle">
+          {xTicks.map(([age, label]) => (
+            <g key={age}>
+              <line x1={x(now - age)} x2={x(now - age)} y1={M.top} y2={M.top + plotH} className="grid" />
+              <text x={x(now - age)} y={M.top + plotH + 14} className="tick" textAnchor={age === 0 ? 'end' : 'middle'}>
                 {label}
               </text>
             </g>
@@ -147,7 +154,7 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
               stroke={`var(--series-${i + 1})`}
               strokeWidth={2}
             >
-              <title>{`${MACHINES[i].name} bought at ${formatDuration(t)}`}</title>
+              <title>{`${MACHINES[i].name}, ${formatDuration(now - t)} ago`}</title>
             </line>
           ))}
 
@@ -163,7 +170,7 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
             className="tooltip"
             style={{ left: Math.min(x(hover[0]) + 12, width - 170), top: Math.max(0, y(hover[2]) - 60) }}
           >
-            <div className="tooltip-k">{formatDuration(hover[0])}</div>
+            <div className="tooltip-k">{now - hover[0] < 1 ? 'now' : `${formatDuration(now - hover[0])} ago`}</div>
             <div>Earned {formatLog(hover[2])}</div>
             <div className="tooltip-sub">Held {hover[1] === null ? '0' : formatLog(hover[1])}</div>
           </div>

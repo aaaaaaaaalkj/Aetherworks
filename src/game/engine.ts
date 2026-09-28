@@ -53,28 +53,46 @@ function spentOn(levels: number[]): number {
   return total;
 }
 
-/**
- * Appends a history sample. Samples are spaced ~1% apart in time, which is
- * uniform on the chart's logarithmic time axis.
- */
+/** Finest spacing between samples, in game seconds. */
+const MIN_SPACING = 0.25;
+/** An old sample survives thinning if it is at least this fraction of its age from its newer neighbour. */
+const THIN_RATIO = 0.02;
+const THIN_TRIGGER = 1500;
+
 function record(state: GameState, force = false): void {
   const last = state.history[state.history.length - 1];
-  if (!force && last && state.time < last[0] * 1.01 + 0.5) return;
+  if (!force && last && state.time - last[0] < MIN_SPACING) return;
   state.history.push([state.time, logCredits(state.credits), Math.log10(state.earned)]);
-  if (state.history.length > HISTORY_LIMIT) {
-    // Thin the oldest part; the newest stretch keeps full detail.
-    const cut = Math.floor(state.history.length * 0.6);
-    state.history = [...state.history.slice(0, cut).filter((_, k) => k % 2 === 0), ...state.history.slice(cut)];
-  }
+  if (state.history.length > THIN_TRIGGER) thin(state);
 }
 
-/** Advances game time, sub-stepping long jumps so the history curve stays smooth. */
-export function advance(state: GameState, dt: number, rate: number): void {
+/**
+ * The chart shows age on a log scale: recent history expanded, the distant past
+ * compressed. Detail is kept in proportion to age, so the newest samples stay
+ * dense and older ones thin out (about 115 samples per decade of age).
+ */
+function thin(state: GameState): void {
+  const h = state.history;
+  const now = state.time;
+  const kept: HistoryPoint[] = [h[h.length - 1]];
+  for (let k = h.length - 2; k > 0; k--) {
+    const newer = kept[kept.length - 1];
+    if (newer[0] - h[k][0] >= THIN_RATIO * (now - h[k][0])) kept.push(h[k]);
+  }
+  kept.push(h[0]);
+  state.history = kept.reverse();
+}
+
+/**
+ * Advances game time. With `smooth`, a long jump (skip, time away) is recorded as
+ * many samples that crowd toward its end, matching the chart's age axis.
+ */
+export function advance(state: GameState, dt: number, rate: number, smooth = false): void {
   // Self-heal a state that predates the running total (e.g. kept alive across a hot reload).
   if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels);
   let remaining = dt;
   while (remaining > 0) {
-    const step = Math.min(remaining, Math.max(1, state.time * 0.02));
+    const step = smooth ? Math.min(remaining, Math.max(MIN_SPACING, remaining * 0.03)) : remaining;
     state.credits += rate * step;
     state.earned += rate * step;
     state.time += step;
@@ -124,7 +142,7 @@ export function loadGame(): { state: GameState; awaySeconds: number } {
         savedAt: s.savedAt ?? Date.now(),
       };
       const awaySeconds = Math.max(0, (Date.now() - state.savedAt) / 1000);
-      advance(state, awaySeconds, totalRate(state.levels));
+      advance(state, awaySeconds, totalRate(state.levels), true);
       return { state, awaySeconds };
     }
   } catch {
