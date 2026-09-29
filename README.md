@@ -2,6 +2,8 @@
 
 A minimal idle game about eight machines that turn time into credits.
 
+**Play:** https://aaaaaaaaalkj.github.io/Aetherworks/
+
 ## How it plays
 
 - Each machine is a bar whose height is the log of what its next level costs.
