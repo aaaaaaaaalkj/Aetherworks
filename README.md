@@ -8,8 +8,7 @@ A minimal idle game about eight machines that turn time into credits.
 
 - Each machine is a bar whose height is the log of what its next level costs.
 - Your credits are a water line on the same log scale. A bar that is fully under water can be bought (click it or press `1`–`8`). Buying spends the credits, the water drops, and the bar grows to the next level's cost.
-- **Share of production** shows how much of your income each machine provides.
-- **Credits over time** plots credits against time since the start, both on log scales, so the past compresses. Coloured ticks below it mark every purchase.
+- **Credits over time** plots credits against time since the start, both on log scales, so the past compresses. Coloured ticks below it mark every purchase. The area under the total is coloured by each machine's share of production at that moment, so the right edge shows today's mix.
 
 ## The economy
 

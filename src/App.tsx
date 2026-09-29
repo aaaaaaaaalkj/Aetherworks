@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Contribution } from './components/Contribution';
 import { CreditChart } from './components/CreditChart';
 import { Tank } from './components/Tank';
 import {
@@ -169,7 +168,14 @@ export default function App() {
       {/* Content grows up from the bottom; the clickable machines stay docked there. */}
       <main className="layout">
         {view === 'history' ? (
-          <CreditChart history={s.history} purchases={s.purchases} now={s.time} credits={s.credits} earned={s.earned} />
+          <CreditChart
+            machines={machinesOf(s)}
+            history={s.history}
+            purchases={s.purchases}
+            now={s.time}
+            credits={s.credits}
+            earned={s.earned}
+          />
         ) : (
           <div className="slot cheats-slot">
             <section className="panel controls" aria-label="Cheats">
@@ -202,7 +208,6 @@ export default function App() {
           </div>
         )}
         <div className="dock">
-          <Contribution machines={machinesOf(s)} levels={s.levels} />
           <Tank machines={machinesOf(s)} levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
         </div>
       </main>

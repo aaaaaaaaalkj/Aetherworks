@@ -154,10 +154,15 @@ kbd {
   background: var(--grid);
 }
 
-.group button.on,
-.view-toggle button.on {
+.group button.on {
   background: var(--text-primary);
   color: var(--surface-1);
+}
+
+/* Quieter than the cheat buttons: a lifted tab, not a bright block. */
+.view-toggle button.on {
+  background: var(--border);
+  color: var(--text-primary);
 }
 
 .reset {
@@ -325,26 +330,6 @@ kbd {
   min-width: 0;
 }
 
-/* share of production */
-
-.share-bar {
-  display: flex;
-  gap: 2px;
-  height: 10px;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.share-seg {
-  flex-basis: 0;
-  min-width: 2px;
-}
-
-.share-empty {
-  flex: 1;
-  background: var(--grid);
-}
-
 /* chart */
 
 .chart {
@@ -380,9 +365,14 @@ kbd {
 }
 
 .held-line {
-  stroke: var(--text-muted);
+  stroke: var(--text-primary);
   stroke-width: 1;
+  stroke-dasharray: 3 2;
   opacity: 0.7;
+}
+
+.share-layer {
+  opacity: 0.85;
 }
 
 .crosshair line {

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HistoryPoint } from '../game/engine';
 import { formatDuration, formatLog } from '../game/format';
-import { NAMES } from '../game/machines';
+import { type MachineDef, NAMES } from '../game/machines';
 
 interface Props {
+  machines: MachineDef[];
   history: HistoryPoint[];
   purchases: [number, number][];
   now: number;
@@ -39,7 +40,7 @@ const MIN_TICK_GAP = 34;
  * Credits (log) against how long ago (log): now is the right edge, the recent past
  * is expanded and the start of the game is compressed at the left.
  */
-export function CreditChart({ history, purchases, now, credits, earned }: Props) {
+export function CreditChart({ machines, history, purchases, now, credits, earned }: Props) {
   const slotRef = useRef<HTMLDivElement>(null);
   const [slot, setSlot] = useState({ width: 800, height: MAX_HEIGHT + PANEL_Y });
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -99,6 +100,36 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
     earnedPath += `${cmd}${x(t).toFixed(1)},${y(total).toFixed(1)}`;
   });
 
+  // The area under the total is split by each machine's share of production at
+  // that moment, rebuilt from the purchase log; the right edge is the current mix.
+  // Where the mix changes, the old mix is repeated at the same x for a sharp step.
+  const levels = machines.map(() => 0);
+  let bought = 0;
+  let mix: number[] | null = null;
+  const cols: [number, number, number[]][] = [];
+  for (const [t, , total] of points) {
+    while (bought < purchases.length && purchases[bought][0] <= t) {
+      const i = purchases[bought++][1];
+      if (i in levels) levels[i] += 1;
+    }
+    const prod = machines.map((m, i) => m.production(levels[i]));
+    const sum = prod.reduce((a, b) => a + b, 0);
+    const shares = prod.map((p) => (sum > 0 ? p / sum : 0));
+    if (mix && shares.some((s, i) => s !== mix![i])) cols.push([t, total, mix]);
+    cols.push([t, total, shares]);
+    mix = shares;
+  }
+  const layers = machines.map((_, i) => {
+    let upper = '';
+    let lower = '';
+    for (const [t, total, shares] of cols) {
+      const below = shares.slice(0, i).reduce((a, b) => a + b, 0);
+      upper += `L${x(t).toFixed(1)},${y(total * (below + shares[i])).toFixed(1)}`;
+      lower = `L${x(t).toFixed(1)},${y(total * below).toFixed(1)}` + lower;
+    }
+    return `M${upper.slice(1)}${lower}Z`;
+  });
+
   // Hover: nearest sample by x position.
   let hover: HistoryPoint | null = null;
   if (hoverX !== null) {
@@ -152,6 +183,9 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
               </g>
             ))}
             <line x1={M.left} x2={M.left + plotW} y1={M.top + plotH} y2={M.top + plotH} className="axis" />
+            {layers.map((d, i) => (
+              <path key={i} d={d} className="share-layer" fill={`var(--series-${i + 1})`} />
+            ))}
             <path d={heldPath} className="held-line" />
             <path d={earnedPath} className="earned-line" />
 
