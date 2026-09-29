@@ -19,6 +19,10 @@
 //
 // Payback time grows slowly with scale (production ~ cost^(1-k)), so the game
 // starts with purchases every minute or two and settles into hours, then days.
+//
+// Each new game deals the eight ladders out to the eight slots in a random
+// order, so buying the cheapest upgrade doesn't sweep the slots left to right.
+// The ladders themselves stay as tuned, so every game paces the same.
 
 export interface MachineDef {
   name: string;
@@ -29,13 +33,14 @@ export interface MachineDef {
 /** Average number of decades between consecutive levels of one machine. */
 const STEP = 5.5;
 
-function machine(
-  name: string,
-  offset: number,
-  wobble: (n: number) => number,
-  paybackBase: number,
-  scaleDrag: number,
-): MachineDef {
+interface Ladder {
+  offset: number;
+  wobble: (n: number) => number;
+  paybackBase: number;
+  scaleDrag: number;
+}
+
+function machine(name: string, { offset, wobble, paybackBase, scaleDrag }: Ladder): MachineDef {
   const logCost = (L: number) => offset + STEP * (L - 1) + wobble(L - 1);
   return {
     name,
@@ -44,18 +49,50 @@ function machine(
   };
 }
 
+/** Slot names, left to right; colours and keys 1–8 follow the slot. */
+export const NAMES = ['Coil', 'Mill', 'Reactor', 'Pump', 'Loom', 'Engine', 'Orrery', 'Press'];
+
 // Offsets were found by searching for the arrangement that minimises the largest
 // gap in the combined ladder over the first ~240 decades of cost.
-export const MACHINES: MachineDef[] = [
-  machine('Coil', 0, () => 0, 8, 0.02),
-  machine('Mill', 1.14, () => 0, 16, 0.021),
-  machine('Reactor', 2.03, (n) => [0, -0.25, -0.5, 0.25][n % 4], 18, 0.021),
-  machine('Pump', 2.58, (n) => 0.35 * (n % 2), 22, 0.019),
-  machine('Loom', 3.34, (n) => 0.4 * Math.sin(n * 0.33), 28, 0.017),
-  machine('Engine', 3.91, (n) => 0.6 * ((n * 0.37) % 1) - 0.3, 20, 0.022),
-  machine('Orrery', 4.39, (n) => 0.35 * Math.sin(n * 1.9 + 1), 24, 0.02),
-  machine('Press', 4.76, (n) => 0.4 * Math.sin(n * 0.9), 26, 0.018),
+const LADDERS: Ladder[] = [
+  { offset: 0, wobble: () => 0, paybackBase: 8, scaleDrag: 0.02 },
+  { offset: 1.14, wobble: () => 0, paybackBase: 16, scaleDrag: 0.021 },
+  { offset: 2.03, wobble: (n) => [0, -0.25, -0.5, 0.25][n % 4], paybackBase: 18, scaleDrag: 0.021 },
+  { offset: 2.58, wobble: (n) => 0.35 * (n % 2), paybackBase: 22, scaleDrag: 0.019 },
+  { offset: 3.34, wobble: (n) => 0.4 * Math.sin(n * 0.33), paybackBase: 28, scaleDrag: 0.017 },
+  { offset: 3.91, wobble: (n) => 0.6 * ((n * 0.37) % 1) - 0.3, paybackBase: 20, scaleDrag: 0.022 },
+  { offset: 4.39, wobble: (n) => 0.35 * Math.sin(n * 1.9 + 1), paybackBase: 24, scaleDrag: 0.02 },
+  { offset: 4.76, wobble: (n) => 0.4 * Math.sin(n * 0.9), paybackBase: 26, scaleDrag: 0.018 },
 ];
 
-/** Exactly enough to build the first Coil. */
+/** Which ladder each slot gets. Saves from before the shuffle use this one. */
+export const IDENTITY_ORDER = LADDERS.map((_, i) => i);
+
+export function randomOrder(): number[] {
+  const order = [...IDENTITY_ORDER];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+export function isOrder(order: unknown): order is number[] {
+  return Array.isArray(order) && order.length === LADDERS.length && IDENTITY_ORDER.every((i) => order.includes(i));
+}
+
+const built = new Map<string, MachineDef[]>();
+
+/** The machines for a given deal of ladders to slots. */
+export function machinesFor(order: number[]): MachineDef[] {
+  const key = order.join();
+  let machines = built.get(key);
+  if (!machines) {
+    machines = order.map((ladder, slot) => machine(NAMES[slot], LADDERS[ladder]));
+    built.set(key, machines);
+  }
+  return machines;
+}
+
+/** Exactly enough to build the cheapest first level. */
 export const STARTING_CREDITS = 1;

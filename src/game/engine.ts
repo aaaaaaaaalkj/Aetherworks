@@ -1,4 +1,12 @@
-import { MACHINES, STARTING_CREDITS } from './machines';
+import {
+  IDENTITY_ORDER,
+  isOrder,
+  type MachineDef,
+  machinesFor,
+  NAMES,
+  randomOrder,
+  STARTING_CREDITS,
+} from './machines';
 
 /** [game time in seconds, log10(credits held) or null when empty, log10(credits earned in total)] */
 export type HistoryPoint = [number, number | null, number];
@@ -8,6 +16,8 @@ export interface GameState {
   /** Everything ever produced, including what was spent. */
   earned: number;
   levels: number[];
+  /** Which cost ladder each slot got, dealt at random when the game starts. */
+  order: number[];
   /** Game seconds since the start, including warped and skipped time. */
   time: number;
   history: HistoryPoint[];
@@ -24,7 +34,8 @@ export function freshState(): GameState {
   return {
     credits: STARTING_CREDITS,
     earned: STARTING_CREDITS,
-    levels: MACHINES.map(() => 0),
+    levels: NAMES.map(() => 0),
+    order: randomOrder(),
     time: 0,
     history: [[0, Math.log10(STARTING_CREDITS), Math.log10(STARTING_CREDITS)]],
     purchases: [],
@@ -64,24 +75,28 @@ export function sync(state: GameState, rate: number, speed: number, nowMs: numbe
   return null;
 }
 
-export function totalRate(levels: number[]): number {
-  return MACHINES.reduce((sum, m, i) => sum + m.production(levels[i]), 0);
+export function machinesOf(state: GameState): MachineDef[] {
+  return machinesFor(state.order);
 }
 
-export function nextCost(levels: number[], i: number): number {
-  return MACHINES[i].cost(levels[i] + 1);
+export function totalRate(state: GameState): number {
+  return machinesOf(state).reduce((sum, m, i) => sum + m.production(state.levels[i]), 0);
+}
+
+export function nextCost(state: GameState, i: number): number {
+  return machinesOf(state)[i].cost(state.levels[i] + 1);
 }
 
 export function canBuy(state: GameState, i: number): boolean {
-  return state.credits >= nextCost(state.levels, i);
+  return state.credits >= nextCost(state, i);
 }
 
 const logCredits = (c: number) => (c > 0 ? Math.log10(c) : null);
 
-function spentOn(levels: number[]): number {
+function spentOn(levels: number[], machines: MachineDef[]): number {
   let total = 0;
   levels.forEach((level, i) => {
-    for (let L = 1; L <= level; L++) total += MACHINES[i].cost(L);
+    for (let L = 1; L <= level; L++) total += machines[i].cost(L);
   });
   return total;
 }
@@ -122,7 +137,7 @@ function thin(state: GameState): void {
  */
 export function advance(state: GameState, dt: number, rate: number, smooth = false): void {
   // Self-heal a state that predates the running total (e.g. kept alive across a hot reload).
-  if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels);
+  if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels, machinesOf(state));
   let remaining = dt;
   while (remaining > 0) {
     const step = smooth ? Math.min(remaining, Math.max(MIN_SPACING, remaining * 0.03)) : remaining;
@@ -137,7 +152,7 @@ export function advance(state: GameState, dt: number, rate: number, smooth = fal
 export function buy(state: GameState, i: number): boolean {
   if (!canBuy(state, i)) return false;
   record(state, true);
-  state.credits = Math.max(0, state.credits - nextCost(state.levels, i));
+  state.credits = Math.max(0, state.credits - nextCost(state, i));
   state.levels[i] += 1;
   state.purchases.push([state.time, i]);
   record(state, true);
@@ -162,13 +177,16 @@ export function loadGame(): GameState {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const s = JSON.parse(raw) as GameState;
-      const levels = MACHINES.map((_, i) => Math.max(0, Math.floor(s.levels?.[i] ?? 0)));
+      const levels = NAMES.map((_, i) => Math.max(0, Math.floor(s.levels?.[i] ?? 0)));
+      // Saves from before the shuffle keep the original left-to-right ladders.
+      const order = isOrder(s.order) ? s.order : IDENTITY_ORDER;
       const credits = Number.isFinite(s.credits) ? s.credits : STARTING_CREDITS;
       const state: GameState = {
         credits,
         // Older saves lack a running total; it is recoverable from what was bought.
-        earned: Number.isFinite(s.earned) ? s.earned : credits + spentOn(levels),
+        earned: Number.isFinite(s.earned) ? s.earned : credits + spentOn(levels, machinesFor(order)),
         levels,
+        order,
         time: s.time ?? 0,
         history: Array.isArray(s.history) ? cleanHistory(s.history) : [],
         purchases: Array.isArray(s.purchases) ? s.purchases : [],

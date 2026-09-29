@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HistoryPoint } from '../game/engine';
 import { formatDuration, formatLog } from '../game/format';
-import { MACHINES } from '../game/machines';
+import { NAMES } from '../game/machines';
 
 interface Props {
   history: HistoryPoint[];
@@ -166,7 +166,7 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
                 stroke={`var(--series-${i + 1})`}
                 strokeWidth={2}
               >
-                <title>{`${MACHINES[i].name}, ${formatDuration(now - t)} ago`}</title>
+                <title>{`${NAMES[i]}, ${formatDuration(now - t)} ago`}</title>
               </line>
             ))}
 

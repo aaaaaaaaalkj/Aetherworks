@@ -18,6 +18,7 @@ Every machine is defined in `src/game/machines.ts` by two functions of its level
 - Each level costs on average 10^5.5 times more than the previous one. A machine's own output would take months to years to pay for its next level.
 - The eight cost ladders are offset and interleaved, so across all machines there is always a next level within reach of the combined output. The largest gap between neighbouring costs is about 14×.
 - Each ladder wobbles in its own pattern, and each machine has its own efficiency, so the dominant machine keeps changing.
+- Every new game deals the eight ladders to the eight slots in a random order, so the cheapest upgrade doesn't simply move left to right. The ladders themselves never change, so every game paces the same.
 - Payback time grows slowly with scale. Purchases come every minute or two at first, about every 20 minutes after a day, hours after a week, and days after a few months.
 
 ## Idle time

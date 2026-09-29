@@ -5,16 +5,18 @@ import { Tank } from './components/Tank';
 import {
   advance,
   buy,
+  canBuy,
   clearSave,
   freshState,
   type IdleReport,
   loadGame,
+  machinesOf,
   saveGame,
   sync,
   totalRate,
 } from './game/engine';
 import { formatDuration } from './game/format';
-import { MACHINES } from './game/machines';
+import { NAMES } from './game/machines';
 
 const RENDER_INTERVAL_MS = 100;
 const SAVE_INTERVAL_MS = 5000;
@@ -42,7 +44,7 @@ const NOTICE_MIN_IDLE_S = 60;
 export default function App() {
   const [boot] = useState(loadGame);
   const game = useRef(boot);
-  const rate = useRef(totalRate(boot.levels));
+  const rate = useRef(totalRate(boot));
   const [away, setAway] = useState<IdleReport | null>(null);
   const [view, setView] = useState<'history' | 'cheats'>('history');
   const speedRef = useRef(1);
@@ -93,7 +95,7 @@ export default function App() {
   const purchase = useCallback(
     (i: number) => {
       if (!buy(game.current, i)) return;
-      rate.current = totalRate(game.current.levels);
+      rate.current = totalRate(game.current);
       rerender();
     },
     [rerender],
@@ -103,7 +105,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const n = Number(e.key);
-      if (n >= 1 && n <= MACHINES.length) purchase(n - 1);
+      if (n >= 1 && n <= NAMES.length) purchase(n - 1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -134,7 +136,7 @@ export default function App() {
   };
 
   const s = game.current;
-  const readyCount = MACHINES.filter((m, i) => s.credits >= m.cost(s.levels[i] + 1)).length;
+  const readyCount = NAMES.filter((_, i) => canBuy(s, i)).length;
   useEffect(() => {
     document.title = readyCount ? `(${readyCount}) Aetherworks` : 'Aetherworks';
   }, [readyCount]);
@@ -200,8 +202,8 @@ export default function App() {
           </div>
         )}
         <div className="dock">
-          <Contribution levels={s.levels} />
-          <Tank levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
+          <Contribution machines={machinesOf(s)} levels={s.levels} />
+          <Tank machines={machinesOf(s)} levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
         </div>
       </main>
     </div>

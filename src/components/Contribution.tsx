@@ -1,8 +1,8 @@
-import { MACHINES } from '../game/machines';
+import type { MachineDef } from '../game/machines';
 
 /** Share of total production per machine, as one proportional horizontal bar. */
-export function Contribution({ levels }: { levels: number[] }) {
-  const prod = MACHINES.map((m, i) => m.production(levels[i]));
+export function Contribution({ machines, levels }: { machines: MachineDef[]; levels: number[] }) {
+  const prod = machines.map((m, i) => m.production(levels[i]));
   const total = prod.reduce((a, b) => a + b, 0);
   const shares = prod.map((p) => (total > 0 ? p / total : 0));
 
@@ -16,7 +16,7 @@ export function Contribution({ levels }: { levels: number[] }) {
               key={i}
               className="share-seg"
               style={{ flexGrow: s, background: `var(--series-${i + 1})` }}
-              title={MACHINES[i].name}
+              title={machines[i].name}
             />
           ) : null,
         )}

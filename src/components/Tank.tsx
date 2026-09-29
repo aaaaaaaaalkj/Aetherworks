@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react';
-import { nextCost } from '../game/engine';
-import { MACHINES } from '../game/machines';
+import type { MachineDef } from '../game/machines';
 
 interface Props {
+  machines: MachineDef[];
   levels: number[];
   credits: number;
   rate: number;
@@ -14,8 +14,8 @@ interface Props {
  * level is log10 of the credits held. A bar that is fully under water can be bought.
  * The scale slides with production: the floor sits at about one second's output.
  */
-export function Tank({ levels, credits, rate, onBuy }: Props) {
-  const costs = MACHINES.map((_, i) => Math.log10(nextCost(levels, i)));
+export function Tank({ machines, levels, credits, rate, onBuy }: Props) {
+  const costs = machines.map((m, i) => Math.log10(m.cost(levels[i] + 1)));
   const floor = rate > 0 ? Math.log10(rate) - 0.5 : Math.min(...costs) - 1;
   const ceil = Math.max(Math.max(...costs) + 0.4, floor + 3);
   const span = ceil - floor;
@@ -34,7 +34,7 @@ export function Tank({ levels, credits, rate, onBuy }: Props) {
             <div key={d} className="gridline" style={{ bottom: pct(d) }} />
           ))}
           <div className="bars">
-            {MACHINES.map((m, i) => {
+            {machines.map((m, i) => {
               const ready = water >= costs[i];
               return (
                 <button
@@ -53,7 +53,7 @@ export function Tank({ levels, credits, rate, onBuy }: Props) {
           <div className="water" style={{ height: pct(water) }} />
         </div>
         <div className="bar-labels">
-          {MACHINES.map((m, i) => (
+          {machines.map((m, i) => (
             <div key={m.name} className="bar-label">
               <span className="badge" style={{ background: `var(--series-${i + 1})` }} title={m.name}>
                 {levels[i]}
