@@ -50,6 +50,7 @@
 
 body {
   margin: 0;
+  overscroll-behavior-y: none;
   background: var(--surface-0);
   color: var(--text-primary);
   font: 14px/1.4 var(--font);
@@ -70,7 +71,16 @@ kbd {
 
 /* toolbar */
 
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
 .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -164,8 +174,13 @@ kbd {
 }
 
 .notice {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
   display: block;
   width: 100%;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
   padding: 8px 16px;
   border: 0;
   border-bottom: 1px solid var(--border);
@@ -183,13 +198,28 @@ kbd {
 /* layout */
 
 .layout {
-  display: grid;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Push content to the bottom. margin-top:auto (not justify-content:flex-end)
+   keeps the page scrollable when it is taller than the screen. */
+.layout > :first-child {
+  margin-top: auto;
+}
+
+/* Share bar + machines stay on screen at the bottom; the chart scrolls behind. */
+.dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
 }
 
 /* Panels run edge to edge, separated by hairlines. */
 .panel {
   background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);
   padding: 12px;
   min-width: 0;
 }

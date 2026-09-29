@@ -173,19 +173,21 @@ export default function App() {
             </button>
           </div>
         )}
+        {away && (
+          <button className="notice" onClick={() => setAway(null)}>
+            Welcome back. You were away for <strong>{formatDuration(away.idleSeconds)}</strong>, which counts as{' '}
+            <strong>{formatDuration(away.gameSeconds)}</strong> of production.
+          </button>
+        )}
       </header>
 
-      {away && (
-        <button className="notice" onClick={() => setAway(null)}>
-          Welcome back. You were away for <strong>{formatDuration(away.idleSeconds)}</strong>, which counts as{' '}
-          <strong>{formatDuration(away.gameSeconds)}</strong> of production.
-        </button>
-      )}
-
+      {/* Content grows up from the bottom; the clickable machines stay docked there. */}
       <main className="layout">
-        <Tank levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
-        <Contribution levels={s.levels} />
         <CreditChart history={s.history} purchases={s.purchases} now={s.time} credits={s.credits} earned={s.earned} />
+        <div className="dock">
+          <Contribution levels={s.levels} />
+          <Tank levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
+        </div>
       </main>
     </div>
   );
