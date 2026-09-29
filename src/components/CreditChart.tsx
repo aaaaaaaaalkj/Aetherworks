@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HistoryPoint } from '../game/engine';
-import { decadeLabel, formatDuration, formatLog } from '../game/format';
+import { formatDuration, formatLog } from '../game/format';
 import { MACHINES } from '../game/machines';
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
 }
 
 const HEIGHT = 260;
-const M = { top: 12, right: 16, bottom: 44, left: 52 };
+const M = { top: 12, right: 12, bottom: 44, left: 12 };
 const RUG = 10;
 
 /** Ages (seconds before now) marked on the time axis. */
@@ -74,7 +74,8 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
   for (const [age, label] of AGE_TICKS) {
     if (age > Math.max(60, now)) break;
     const prev = xTicks[xTicks.length - 1];
-    if (!prev || x(now - prev[0]) - x(now - age) >= MIN_TICK_GAP) xTicks.push([age, label]);
+    const fits = x(now - age) >= M.left + 16;
+    if (fits && (!prev || x(now - prev[0]) - x(now - age) >= MIN_TICK_GAP)) xTicks.push([age, label]);
   }
 
   let heldPath = '';
@@ -109,7 +110,6 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
   return (
     <section className="panel">
       <div className="chart-head">
-        <h2>Credits over time</h2>
         <ul className="legend">
           <li>
             <span className="line-key earned" />
@@ -126,9 +126,6 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
           {yTicks.map((v) => (
             <g key={v}>
               <line x1={M.left} x2={M.left + plotW} y1={y(v)} y2={y(v)} className="grid" />
-              <text x={M.left - 8} y={y(v)} className="tick" textAnchor="end" dominantBaseline="middle">
-                {decadeLabel(v)}
-              </text>
             </g>
           ))}
           {xTicks.map(([age, label]) => (

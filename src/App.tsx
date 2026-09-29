@@ -34,6 +34,7 @@ export default function App() {
   const game = useRef(boot);
   const rate = useRef(totalRate(boot.levels));
   const [away, setAway] = useState<IdleReport | null>(null);
+  const [cheatsOpen, setCheatsOpen] = useState(false);
   const speedRef = useRef(1);
   const [speed, setSpeedState] = useState(1);
   const [, setFrame] = useState(0);
@@ -135,33 +136,43 @@ export default function App() {
         <span className="clock" title="Game time since start">
           {formatDuration(s.time)}
         </span>
-        <div className="controls" aria-label="Time controls">
-          <div className="group">
-            {SPEEDS.map((v) => (
-              <button key={v} className={v === speed ? 'on' : ''} onClick={() => setSpeed(v)}>
-                {speedLabel(v)}
-              </button>
-            ))}
+        <button
+          className={`cheats-toggle${speed > 1 ? ' warping' : ''}`}
+          onClick={() => setCheatsOpen((o) => !o)}
+          aria-expanded={cheatsOpen}
+          aria-controls="cheats"
+        >
+          {cheatsOpen ? '▾' : '▸'} Cheats{speed > 1 ? ` · ${speedLabel(speed)}` : ''}
+        </button>
+        {cheatsOpen && (
+          <div className="controls" id="cheats" aria-label="Cheats">
+            <div className="group">
+              {SPEEDS.map((v) => (
+                <button key={v} className={v === speed ? 'on' : ''} onClick={() => setSpeed(v)}>
+                  {speedLabel(v)}
+                </button>
+              ))}
+            </div>
+            <div className="group">
+              {SKIPS.map(([label, secs]) => (
+                <button key={label} onClick={() => skip(secs)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="group" title="Simulate being away (idle time is squared)">
+              <span className="group-label">Away</span>
+              {AWAY.map(([label, secs]) => (
+                <button key={label} onClick={() => simulateAway(secs)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button className="reset" onClick={reset}>
+              Reset
+            </button>
           </div>
-          <div className="group">
-            {SKIPS.map(([label, secs]) => (
-              <button key={label} onClick={() => skip(secs)}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="group" title="Simulate being away (idle time is squared)">
-            <span className="group-label">Away</span>
-            {AWAY.map(([label, secs]) => (
-              <button key={label} onClick={() => simulateAway(secs)}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <button className="reset" onClick={reset}>
-            Reset
-          </button>
-        </div>
+        )}
       </header>
 
       {away && (
@@ -175,9 +186,6 @@ export default function App() {
         <Tank levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
         <Contribution levels={s.levels} />
         <CreditChart history={s.history} purchases={s.purchases} now={s.time} credits={s.credits} earned={s.earned} />
-        <p className="hint">
-          A bar fully under the water line can be bought: click it or press <kbd>1</kbd>–<kbd>8</kbd>.
-        </p>
       </main>
     </div>
   );

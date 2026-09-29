@@ -92,11 +92,32 @@ kbd {
   min-width: 7ch;
 }
 
+.cheats-toggle {
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  padding: 4px 10px;
+  font: 12px var(--mono);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.cheats-toggle:hover {
+  background: var(--grid);
+}
+
+.cheats-toggle.warping {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
 .controls {
+  flex-basis: 100%;
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
-  margin-left: auto;
 }
 
 .group {
@@ -162,33 +183,15 @@ kbd {
 /* layout */
 
 .layout {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 16px;
   display: grid;
-  gap: 16px;
 }
 
+/* Panels run edge to edge, separated by hairlines. */
 .panel {
   background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px 16px;
+  border-bottom: 1px solid var(--border);
+  padding: 12px;
   min-width: 0;
-}
-
-.panel h2 {
-  margin: 0 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.hint {
-  margin: 0;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 12px;
 }
 
 .swatch {
@@ -339,10 +342,6 @@ kbd {
   gap: 6px;
 }
 
-.legend li.idle {
-  color: var(--text-muted);
-}
-
 
 /* chart */
 
@@ -369,15 +368,7 @@ kbd {
 
 .chart-head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 16px;
-  margin-bottom: 8px;
-}
-
-.chart-head h2 {
-  margin: 0;
+  justify-content: flex-end;
 }
 
 .chart-head .legend {
@@ -453,6 +444,6 @@ kbd {
     font-size: 11px;
   }
   .controls {
-    margin-left: 0;
+    justify-content: flex-start;
   }
 }

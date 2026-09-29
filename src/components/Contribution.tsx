@@ -7,8 +7,7 @@ export function Contribution({ levels }: { levels: number[] }) {
   const shares = prod.map((p) => (total > 0 ? p / total : 0));
 
   return (
-    <section className="panel">
-      <h2>Share of production</h2>
+    <section className="panel share">
       <div className="share-bar" role="img" aria-label="Share of production by machine">
         {total === 0 && <div className="share-empty" />}
         {shares.map((s, i) =>
@@ -22,14 +21,6 @@ export function Contribution({ levels }: { levels: number[] }) {
           ) : null,
         )}
       </div>
-      <ul className="legend">
-        {MACHINES.map((m, i) => (
-          <li key={m.name} className={shares[i] > 0 ? '' : 'idle'}>
-            <span className="swatch" style={{ background: `var(--series-${i + 1})` }} />
-            {m.name}
-          </li>
-        ))}
-      </ul>
     </section>
   );
 }

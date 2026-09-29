@@ -28,7 +28,6 @@ export function Tank({ levels, credits, rate, onBuy }: Props) {
 
   return (
     <section className="panel">
-      <h2>Machines</h2>
       <div className="tank">
         <div className="tank-plot">
           {grid.map((d) => (
@@ -59,7 +58,7 @@ export function Tank({ levels, credits, rate, onBuy }: Props) {
               <span className="swatch" style={{ background: `var(--series-${i + 1})` }} />
               <span className="bar-name">{m.name}</span>
               <span className="bar-level">
-                {levels[i]} <kbd>{i + 1}</kbd>
+                {levels[i]}
               </span>
             </div>
           ))}

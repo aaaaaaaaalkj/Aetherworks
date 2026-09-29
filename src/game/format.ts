@@ -1,8 +1,3 @@
-/** Axis label for a power of ten, e.g. 45 -> "1e45". */
-export function decadeLabel(exp: number): string {
-  return exp < 4 ? String(10 ** exp) : `1e${exp}`;
-}
-
 /** A value given by its log10, e.g. 45.3 -> "2.0e45". */
 export function formatLog(log10: number): string {
   if (log10 < 4) return (10 ** log10).toFixed(log10 < 1 ? 2 : 0);
