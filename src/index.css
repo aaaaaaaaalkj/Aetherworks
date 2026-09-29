@@ -203,13 +203,18 @@ kbd {
   flex-direction: column;
 }
 
-/* Push content to the bottom. margin-top:auto (not justify-content:flex-end)
-   keeps the page scrollable when it is taller than the screen. */
-.layout > :first-child {
-  margin-top: auto;
+/* The chart gets whatever height the toolbar and dock leave, anchored to the
+   dock; CreditChart shrinks to fit it, or hides itself when it is too short. */
+.chart-slot {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
 }
 
-/* Share bar + machines stay on screen at the bottom; the chart scrolls behind. */
+/* Share bar + machines stay on screen at the bottom. */
 .dock {
   position: sticky;
   bottom: 0;
@@ -356,23 +361,6 @@ kbd {
   background: var(--grid);
 }
 
-.legend {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  font-size: 12px;
-}
-
-.legend li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-
 /* chart */
 
 .chart {
@@ -394,26 +382,6 @@ kbd {
 .chart .tick {
   fill: var(--text-muted);
   font: 11px var(--mono);
-}
-
-.chart-head {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.chart-head .legend {
-  margin: 0;
-}
-
-.line-key {
-  display: inline-block;
-  width: 16px;
-  height: 0;
-  border-top: 2px solid var(--text-primary);
-}
-
-.line-key.held {
-  border-top: 1px solid var(--text-muted);
 }
 
 .earned-line,

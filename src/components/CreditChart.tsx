@@ -11,9 +11,14 @@ interface Props {
   earned: number;
 }
 
-const HEIGHT = 260;
-const M = { top: 12, right: 12, bottom: 44, left: 12 };
-const RUG = 10;
+/** Tallest the chart gets; below MIN_HEIGHT there's no room and it is hidden. */
+const MAX_HEIGHT = 260;
+const MIN_HEIGHT = 90;
+/** Padding + top border of the panel around the svg (see .chart-slot .panel). */
+const PANEL_X = 24;
+const PANEL_Y = 25;
+const M = { top: 8, right: 12, bottom: 22, left: 12 };
+const RUG = 6;
 
 /** Ages (seconds before now) marked on the time axis. */
 const AGE_TICKS: [number, string][] = [
@@ -35,21 +40,29 @@ const MIN_TICK_GAP = 34;
  * is expanded and the start of the game is compressed at the left.
  */
 export function CreditChart({ history, purchases, now, credits, earned }: Props) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(800);
+  const slotRef = useRef<HTMLDivElement>(null);
+  const [slot, setSlot] = useState({ width: 800, height: MAX_HEIGHT + PANEL_Y });
   const [hoverX, setHoverX] = useState<number | null>(null);
 
+  // The slot takes whatever height the dock leaves over; the chart fits into it.
   useEffect(() => {
-    const el = wrapRef.current!;
-    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    const el = slotRef.current!;
+    const ro = new ResizeObserver(([e]) => setSlot({ width: e.contentRect.width, height: e.contentRect.height }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
+  const width = Math.max(0, slot.width - PANEL_X);
+  const height = Math.min(MAX_HEIGHT, Math.floor(slot.height - PANEL_Y));
+  if (height < MIN_HEIGHT) return <div className="chart-slot" ref={slotRef} />;
+
   // Only plot well-formed samples, so bad values can't blank the chart. A sample
   // with an invalid total falls back to the balance held at that moment.
   const points: HistoryPoint[] = [];
-  for (const [t, held, total] of [...history, [now, credits > 0 ? Math.log10(credits) : null, Math.log10(earned)] as HistoryPoint]) {
+  for (const [t, held, total] of [
+    ...history,
+    [now, credits > 0 ? Math.log10(credits) : null, Math.log10(earned)] as HistoryPoint,
+  ]) {
     if (!Number.isFinite(t)) continue;
     const h = Number.isFinite(held) ? held : null;
     const e = Number.isFinite(total) ? total : h;
@@ -57,7 +70,7 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
   }
 
   const plotW = Math.max(50, width - M.left - M.right);
-  const plotH = HEIGHT - M.top - M.bottom;
+  const plotH = height - M.top - M.bottom;
 
   const ageLog = (age: number) => Math.log10(1 + Math.max(0, age));
   const span = ageLog(Math.max(60, now));
@@ -105,74 +118,77 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
     setHoverX(px >= M.left && px <= M.left + plotW ? px : null);
   };
 
-  const rugY = HEIGHT - M.bottom + 22;
+  // Purchase ticks hang just under the axis, above the time labels.
+  const rugY = M.top + plotH + 1;
 
   return (
-    <section className="panel">
-      <div className="chart-head">
-        <ul className="legend">
-          <li>
-            <span className="line-key earned" />
-            Earned in total
-          </li>
-          <li>
-            <span className="line-key held" />
-            Held
-          </li>
-        </ul>
-      </div>
-      <div className="chart" ref={wrapRef}>
-        <svg width={width} height={HEIGHT} onPointerMove={onMove} onPointerLeave={() => setHoverX(null)} role="img" aria-label="Credits over time; time runs to now at the right, both axes logarithmic">
-          {yTicks.map((v) => (
-            <g key={v}>
-              <line x1={M.left} x2={M.left + plotW} y1={y(v)} y2={y(v)} className="grid" />
-            </g>
-          ))}
-          {xTicks.map(([age, label]) => (
-            <g key={age}>
-              <line x1={x(now - age)} x2={x(now - age)} y1={M.top} y2={M.top + plotH} className="grid" />
-              <text x={x(now - age)} y={M.top + plotH + 14} className="tick" textAnchor={age === 0 ? 'end' : 'middle'}>
-                {label}
-              </text>
-            </g>
-          ))}
-          <line x1={M.left} x2={M.left + plotW} y1={M.top + plotH} y2={M.top + plotH} className="axis" />
-          <path d={heldPath} className="held-line" />
-          <path d={earnedPath} className="earned-line" />
-
-          {/* Purchases, one tick per level bought, in the machine's colour */}
-          {purchases.map(([t, i], k) => (
-            <line
-              key={k}
-              x1={x(t)}
-              x2={x(t)}
-              y1={rugY}
-              y2={rugY + RUG}
-              stroke={`var(--series-${i + 1})`}
-              strokeWidth={2}
-            >
-              <title>{`${MACHINES[i].name}, ${formatDuration(now - t)} ago`}</title>
-            </line>
-          ))}
-
-          {hover && (
-            <g className="crosshair">
-              <line x1={x(hover[0])} x2={x(hover[0])} y1={M.top} y2={M.top + plotH} />
-              <circle cx={x(hover[0])} cy={y(hover[2])} r={4} />
-            </g>
-          )}
-        </svg>
-        {hover && (
-          <div
-            className="tooltip"
-            style={{ left: Math.min(x(hover[0]) + 12, width - 170), top: Math.max(0, y(hover[2]) - 60) }}
+    <div className="chart-slot" ref={slotRef}>
+      <section className="panel">
+        <div className="chart">
+          <svg
+            width={width}
+            height={height}
+            onPointerMove={onMove}
+            onPointerLeave={() => setHoverX(null)}
+            role="img"
+            aria-label="Credits over time; time runs to now at the right, both axes logarithmic"
           >
-            <div className="tooltip-k">{now - hover[0] < 1 ? 'now' : `${formatDuration(now - hover[0])} ago`}</div>
-            <div>Earned {formatLog(hover[2])}</div>
-            <div className="tooltip-sub">Held {hover[1] === null ? '0' : formatLog(hover[1])}</div>
-          </div>
-        )}
-      </div>
-    </section>
+            {yTicks.map((v) => (
+              <g key={v}>
+                <line x1={M.left} x2={M.left + plotW} y1={y(v)} y2={y(v)} className="grid" />
+              </g>
+            ))}
+            {xTicks.map(([age, label]) => (
+              <g key={age}>
+                <line x1={x(now - age)} x2={x(now - age)} y1={M.top} y2={M.top + plotH} className="grid" />
+                <text
+                  x={x(now - age)}
+                  y={M.top + plotH + RUG + 12}
+                  className="tick"
+                  textAnchor={age === 0 ? 'end' : 'middle'}
+                >
+                  {label}
+                </text>
+              </g>
+            ))}
+            <line x1={M.left} x2={M.left + plotW} y1={M.top + plotH} y2={M.top + plotH} className="axis" />
+            <path d={heldPath} className="held-line" />
+            <path d={earnedPath} className="earned-line" />
+
+            {/* Purchases, one tick per level bought, in the machine's colour */}
+            {purchases.map(([t, i], k) => (
+              <line
+                key={k}
+                x1={x(t)}
+                x2={x(t)}
+                y1={rugY}
+                y2={rugY + RUG}
+                stroke={`var(--series-${i + 1})`}
+                strokeWidth={2}
+              >
+                <title>{`${MACHINES[i].name}, ${formatDuration(now - t)} ago`}</title>
+              </line>
+            ))}
+
+            {hover && (
+              <g className="crosshair">
+                <line x1={x(hover[0])} x2={x(hover[0])} y1={M.top} y2={M.top + plotH} />
+                <circle cx={x(hover[0])} cy={y(hover[2])} r={4} />
+              </g>
+            )}
+          </svg>
+          {hover && (
+            <div
+              className="tooltip"
+              style={{ left: Math.min(x(hover[0]) + 12, width - 170), top: Math.max(0, y(hover[2]) - 60) }}
+            >
+              <div className="tooltip-k">{now - hover[0] < 1 ? 'now' : `${formatDuration(now - hover[0])} ago`}</div>
+              <div>Earned {formatLog(hover[2])}</div>
+              <div className="tooltip-sub">Held {hover[1] === null ? '0' : formatLog(hover[1])}</div>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }
