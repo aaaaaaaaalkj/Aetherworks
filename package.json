@@ -2,7 +2,7 @@
   "name": "aetherworks",
   "private": true,
   "version": "0.1.0",
-  "description": "An idle game of strange machines that turn time into credits.",
+  "description": "A minimal idle game: eight machines, interleaved cost ladders, and idle time that is squared.",
   "license": "MIT",
   "type": "module",
   "scripts": {
