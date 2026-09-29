@@ -55,9 +55,7 @@ export function Tank({ levels, credits, rate, onBuy }: Props) {
         <div className="bar-labels">
           {MACHINES.map((m, i) => (
             <div key={m.name} className="bar-label">
-              <span className="swatch" style={{ background: `var(--series-${i + 1})` }} />
-              <span className="bar-name">{m.name}</span>
-              <span className="bar-level">
+              <span className="badge" style={{ background: `var(--series-${i + 1})` }} title={m.name}>
                 {levels[i]}
               </span>
             </div>

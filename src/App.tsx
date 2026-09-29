@@ -2,7 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Contribution } from './components/Contribution';
 import { CreditChart } from './components/CreditChart';
 import { Tank } from './components/Tank';
-import { advance, buy, clearSave, freshState, type IdleReport, loadGame, saveGame, sync, totalRate } from './game/engine';
+import {
+  advance,
+  buy,
+  clearSave,
+  freshState,
+  type IdleReport,
+  loadGame,
+  saveGame,
+  sync,
+  totalRate,
+} from './game/engine';
 import { formatDuration } from './game/format';
 import { MACHINES } from './game/machines';
 
@@ -34,7 +44,7 @@ export default function App() {
   const game = useRef(boot);
   const rate = useRef(totalRate(boot.levels));
   const [away, setAway] = useState<IdleReport | null>(null);
-  const [cheatsOpen, setCheatsOpen] = useState(false);
+  const [view, setView] = useState<'history' | 'cheats'>('history');
   const speedRef = useRef(1);
   const [speed, setSpeedState] = useState(1);
   const [, setFrame] = useState(0);
@@ -135,44 +145,17 @@ export default function App() {
         <h1>Aetherworks</h1>
         <span className="clock" title="Game time since start">
           {formatDuration(s.time)}
+          {speed > 1 && <span className="warp"> {speedLabel(speed)}</span>}
         </span>
-        <button
-          className={`cheats-toggle${speed > 1 ? ' warping' : ''}`}
-          onClick={() => setCheatsOpen((o) => !o)}
-          aria-expanded={cheatsOpen}
-          aria-controls="cheats"
-        >
-          {cheatsOpen ? '▾' : '▸'} Cheats{speed > 1 ? ` · ${speedLabel(speed)}` : ''}
-        </button>
-        {cheatsOpen && (
-          <div className="controls" id="cheats" aria-label="Cheats">
-            <div className="group">
-              {SPEEDS.map((v) => (
-                <button key={v} className={v === speed ? 'on' : ''} onClick={() => setSpeed(v)}>
-                  {speedLabel(v)}
-                </button>
-              ))}
-            </div>
-            <div className="group">
-              {SKIPS.map(([label, secs]) => (
-                <button key={label} onClick={() => skip(secs)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="group" title="Simulate being away (idle time is squared)">
-              <span className="group-label">Away</span>
-              {AWAY.map(([label, secs]) => (
-                <button key={label} onClick={() => simulateAway(secs)}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            <button className="reset" onClick={reset}>
-              Reset
-            </button>
-          </div>
-        )}
+        {/* History and cheats share the space above the machines. */}
+        <div className="view-toggle" role="group" aria-label="Show">
+          <button className={view === 'history' ? 'on' : ''} onClick={() => setView('history')}>
+            History
+          </button>
+          <button className={view === 'cheats' ? 'on' : ''} onClick={() => setView('cheats')}>
+            Cheats
+          </button>
+        </div>
         {away && (
           <button className="notice" onClick={() => setAway(null)}>
             Welcome back. You were away for <strong>{formatDuration(away.idleSeconds)}</strong>, which counts as{' '}
@@ -183,7 +166,39 @@ export default function App() {
 
       {/* Content grows up from the bottom; the clickable machines stay docked there. */}
       <main className="layout">
-        <CreditChart history={s.history} purchases={s.purchases} now={s.time} credits={s.credits} earned={s.earned} />
+        {view === 'history' ? (
+          <CreditChart history={s.history} purchases={s.purchases} now={s.time} credits={s.credits} earned={s.earned} />
+        ) : (
+          <div className="slot cheats-slot">
+            <section className="panel controls" aria-label="Cheats">
+              <div className="group">
+                {SPEEDS.map((v) => (
+                  <button key={v} className={v === speed ? 'on' : ''} onClick={() => setSpeed(v)}>
+                    {speedLabel(v)}
+                  </button>
+                ))}
+              </div>
+              <div className="group">
+                {SKIPS.map(([label, secs]) => (
+                  <button key={label} onClick={() => skip(secs)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="group" title="Simulate being away (idle time is squared)">
+                <span className="group-label">Away</span>
+                {AWAY.map(([label, secs]) => (
+                  <button key={label} onClick={() => simulateAway(secs)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button className="reset" onClick={reset}>
+                Reset
+              </button>
+            </section>
+          </div>
+        )}
         <div className="dock">
           <Contribution levels={s.levels} />
           <Tank levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />

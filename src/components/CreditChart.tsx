@@ -14,7 +14,7 @@ interface Props {
 /** Tallest the chart gets; below MIN_HEIGHT there's no room and it is hidden. */
 const MAX_HEIGHT = 260;
 const MIN_HEIGHT = 90;
-/** Padding + top border of the panel around the svg (see .chart-slot .panel). */
+/** Padding + top border of the panel around the svg (see .slot .panel). */
 const PANEL_X = 24;
 const PANEL_Y = 25;
 const M = { top: 8, right: 12, bottom: 22, left: 12 };
@@ -54,7 +54,7 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
 
   const width = Math.max(0, slot.width - PANEL_X);
   const height = Math.min(MAX_HEIGHT, Math.floor(slot.height - PANEL_Y));
-  if (height < MIN_HEIGHT) return <div className="chart-slot" ref={slotRef} />;
+  if (height < MIN_HEIGHT) return <div className="slot" ref={slotRef} />;
 
   // Only plot well-formed samples, so bad values can't blank the chart. A sample
   // with an invalid total falls back to the balance held at that moment.
@@ -122,7 +122,7 @@ export function CreditChart({ history, purchases, now, credits, earned }: Props)
   const rugY = M.top + plotH + 1;
 
   return (
-    <div className="chart-slot" ref={slotRef}>
+    <div className="slot" ref={slotRef}>
       <section className="panel">
         <div className="chart">
           <svg

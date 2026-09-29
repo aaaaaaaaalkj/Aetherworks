@@ -35,7 +35,7 @@ Short breaks earn less than real time and long absences earn much more. Any gap 
 
 ## Testing
 
-The toolbar speeds time up to 100,000× and can jump ahead by a minute up to a week. **Away** simulates being idle for 30 min up to 8 hours, through the same idle rule. **Reset** starts over. Progress is saved in the browser and keeps accruing while the tab is closed.
+The **Cheats** view (it takes the place of the history chart) speeds time up to 100,000× and can jump ahead by a minute up to a week. **Away** simulates being idle for 30 min up to 8 hours, through the same idle rule. **Reset** starts over. Progress is saved in the browser and keeps accruing while the tab is closed.
 
 ## Development
 
