@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Contribution } from './components/Contribution';
 import { CreditChart } from './components/CreditChart';
 import { Tank } from './components/Tank';
-import { advance, buy, clearSave, freshState, loadGame, saveGame, totalRate } from './game/engine';
+import { advance, buy, clearSave, freshState, type IdleReport, loadGame, saveGame, sync, totalRate } from './game/engine';
 import { formatDuration } from './game/format';
 import { MACHINES } from './game/machines';
 
@@ -18,12 +18,22 @@ const SKIPS: [string, number][] = [
   ['+1d', 86_400],
   ['+1w', 604_800],
 ];
+// Testing: pretend the app was idle for this long (goes through the real idle path).
+const AWAY: [string, number][] = [
+  ['30m', 1800],
+  ['1h', 3600],
+  ['2h', 7200],
+  ['8h', 8 * 3600],
+];
 const speedLabel = (s: number) => (s >= 1000 ? `${s / 1000}k×` : `${s}×`);
+const NOTICE_MS = 12_000;
+const NOTICE_MIN_IDLE_S = 60;
 
 export default function App() {
   const [boot] = useState(loadGame);
-  const game = useRef(boot.state);
-  const rate = useRef(totalRate(boot.state.levels));
+  const game = useRef(boot);
+  const rate = useRef(totalRate(boot.levels));
+  const [away, setAway] = useState<IdleReport | null>(null);
   const speedRef = useRef(1);
   const [speed, setSpeedState] = useState(1);
   const [, setFrame] = useState(0);
@@ -34,13 +44,18 @@ export default function App() {
     setSpeedState(s);
   };
 
+  // Main loop. sync() compares wall-clock time with how far the game has been
+  // simulated: short gaps are active play, long ones (app closed, tab in the
+  // background, machine asleep) are idle time. While the tab is hidden nothing is
+  // simulated, so the whole hidden stretch becomes idle time on return.
   useEffect(() => {
     let raf = 0;
-    let last = performance.now();
     let lastRender = 0;
     const loop = (now: number) => {
-      advance(game.current, ((now - last) / 1000) * speedRef.current, rate.current);
-      last = now;
+      if (!document.hidden) {
+        const idle = sync(game.current, rate.current, speedRef.current, Date.now());
+        if (idle && idle.idleSeconds >= NOTICE_MIN_IDLE_S) setAway(idle);
+      }
       if (now - lastRender > RENDER_INTERVAL_MS) {
         lastRender = now;
         rerender();
@@ -82,6 +97,16 @@ export default function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [purchase]);
+
+  useEffect(() => {
+    if (!away) return;
+    const id = window.setTimeout(() => setAway(null), NOTICE_MS);
+    return () => window.clearTimeout(id);
+  }, [away]);
+
+  const simulateAway = (seconds: number) => {
+    game.current.syncedAt -= seconds * 1000;
+  };
 
   const skip = (seconds: number) => {
     advance(game.current, seconds, rate.current, true);
@@ -125,11 +150,26 @@ export default function App() {
               </button>
             ))}
           </div>
+          <div className="group" title="Simulate being away (idle time is squared)">
+            <span className="group-label">Away</span>
+            {AWAY.map(([label, secs]) => (
+              <button key={label} onClick={() => simulateAway(secs)}>
+                {label}
+              </button>
+            ))}
+          </div>
           <button className="reset" onClick={reset}>
             Reset
           </button>
         </div>
       </header>
+
+      {away && (
+        <button className="notice" onClick={() => setAway(null)}>
+          Welcome back. You were away for <strong>{formatDuration(away.idleSeconds)}</strong>, which counts as{' '}
+          <strong>{formatDuration(away.gameSeconds)}</strong> of production.
+        </button>
+      )}
 
       <main className="layout">
         <Tank levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />

@@ -116,6 +116,13 @@ kbd {
   cursor: pointer;
 }
 
+.group-label {
+  padding: 4px 8px;
+  font: 12px var(--mono);
+  color: var(--text-muted);
+  border-right: 1px solid var(--border);
+}
+
 .group button + button {
   border-left: 1px solid var(--border);
 }
@@ -133,6 +140,23 @@ kbd {
 .reset {
   border: 1px solid var(--border);
   border-radius: 6px;
+}
+
+.notice {
+  display: block;
+  width: 100%;
+  padding: 8px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--grid);
+  color: var(--text-secondary);
+  text-align: center;
+  cursor: pointer;
+}
+
+.notice strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 /* layout */

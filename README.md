@@ -18,9 +18,22 @@ Every machine is defined in `src/game/machines.ts` by two functions of its level
 - Each ladder wobbles in its own pattern, and each machine has its own efficiency, so the dominant machine keeps changing.
 - Payback time grows slowly with scale. Purchases come every minute or two at first, about every 20 minutes after a day, hours after a week, and days after a few months.
 
+## Idle time
+
+Progress continues while the game is not in front of you: when the app is closed, the tab is in the background, or the computer is asleep. That time is applied when you come back, **squared in hours**:
+
+| Away | Counts as |
+|---|---|
+| 30 min | 15 min |
+| 1 hour | 1 hour |
+| 2 hours | 4 hours |
+| 8 hours | 64 hours |
+
+Short breaks earn less than real time and long absences earn much more. Any gap over 5 seconds counts as idle. Returning after at least a minute shows how much production the absence was worth.
+
 ## Testing
 
-The toolbar speeds time up to 100,000× and can jump ahead by a minute up to a week. **Reset** starts over. Progress is saved in the browser and keeps accruing while the tab is closed.
+The toolbar speeds time up to 100,000× and can jump ahead by a minute up to a week. **Away** simulates being idle for 30 min up to 8 hours, through the same idle rule. **Reset** starts over. Progress is saved in the browser and keeps accruing while the tab is closed.
 
 ## Development
 

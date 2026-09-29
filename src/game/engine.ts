@@ -13,7 +13,8 @@ export interface GameState {
   history: HistoryPoint[];
   /** [game time, machine index] of every purchase. */
   purchases: [number, number][];
-  savedAt: number;
+  /** Wall-clock time (ms) up to which the game has been simulated. */
+  syncedAt: number;
 }
 
 const SAVE_KEY = 'aetherworks.save.v2';
@@ -27,8 +28,40 @@ export function freshState(): GameState {
     time: 0,
     history: [[0, Math.log10(STARTING_CREDITS), Math.log10(STARTING_CREDITS)]],
     purchases: [],
-    savedAt: Date.now(),
+    syncedAt: Date.now(),
   };
+}
+
+/** A gap in wall-clock time longer than this counts as idle (closed, hidden, asleep). */
+export const IDLE_THRESHOLD_S = 5;
+
+/** Idle time is squared in hours: 0.5h -> 0.25h, 1h -> 1h, 2h -> 4h of game time. */
+export function idleToGameSeconds(idleSeconds: number): number {
+  return (idleSeconds * idleSeconds) / 3600;
+}
+
+export interface IdleReport {
+  idleSeconds: number;
+  gameSeconds: number;
+}
+
+/**
+ * Brings the game up to the given wall-clock time. Short gaps are active play,
+ * scaled by the warp speed. A long gap means the app was closed, in the
+ * background or the machine was asleep; it is converted with the idle rule and
+ * reported so the player can be told.
+ */
+export function sync(state: GameState, rate: number, speed: number, nowMs: number): IdleReport | null {
+  const gap = (nowMs - state.syncedAt) / 1000;
+  state.syncedAt = nowMs;
+  if (!(gap > 0)) return null;
+  if (gap > IDLE_THRESHOLD_S) {
+    const gameSeconds = idleToGameSeconds(gap);
+    advance(state, gameSeconds, rate, true);
+    return { idleSeconds: gap, gameSeconds };
+  }
+  advance(state, gap * speed, rate);
+  return null;
 }
 
 export function totalRate(levels: number[]): number {
@@ -123,8 +156,8 @@ function cleanHistory(history: unknown[]): HistoryPoint[] {
   return out;
 }
 
-/** Loads the save and credits the time spent away. */
-export function loadGame(): { state: GameState; awaySeconds: number } {
+/** Loads the save. Time spent away is applied by the first sync(). */
+export function loadGame(): GameState {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
@@ -139,20 +172,18 @@ export function loadGame(): { state: GameState; awaySeconds: number } {
         time: s.time ?? 0,
         history: Array.isArray(s.history) ? cleanHistory(s.history) : [],
         purchases: Array.isArray(s.purchases) ? s.purchases : [],
-        savedAt: s.savedAt ?? Date.now(),
+        // Older saves stored the save time as savedAt.
+        syncedAt: s.syncedAt ?? (s as { savedAt?: number }).savedAt ?? Date.now(),
       };
-      const awaySeconds = Math.max(0, (Date.now() - state.savedAt) / 1000);
-      advance(state, awaySeconds, totalRate(state.levels), true);
-      return { state, awaySeconds };
+      return state;
     }
   } catch {
     // Unreadable save or blocked storage: start fresh.
   }
-  return { state: freshState(), awaySeconds: 0 };
+  return freshState();
 }
 
 export function saveGame(state: GameState): void {
-  state.savedAt = Date.now();
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch {
