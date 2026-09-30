@@ -7,7 +7,7 @@ A minimal idle game about eight machines that turn time into credits.
 ## How it plays
 
 - Each machine is a bar whose height is the log of what its next level costs.
-- Machines produce in pulses. A pulse climbs each built machine's bar, and when it reaches the top, everything the machine made during that pulse lands in your balance. The leftmost machine pulses every 5 seconds, the rightmost every 10 minutes (5s, 10s, 20s, 40s, 75s, 2.5m, 5m, 10m). The pulse only changes when credits arrive, not how many. Hover a bar to see its period.
+- Machines produce in pulses. A pulse climbs each built machine's bar, and when it reaches the top, everything the machine made during that pulse lands in your balance. At level 1 the leftmost machine pulses every 5 seconds, the rightmost every 10 minutes (5s, 10s, 20s, 40s, 75s, 2.5m, 5m, 10m), and every further level makes a machine's pulse 1.5× longer. The pulse only changes when credits arrive, not how many. Hover a bar to see its current period.
 - Your credits are a water line on the same log scale. A bar that is fully under water can be bought (click it or press `1`–`8`). Buying spends the credits, the water drops, and the bar grows to the next level's cost.
 - **Credits over time** plots credits against time since the start, both on log scales, so the past compresses. Coloured ticks below it mark every purchase. The area under the total is coloured by each machine's share of production at that moment, so the right edge shows today's mix.
 

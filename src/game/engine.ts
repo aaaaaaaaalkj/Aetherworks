@@ -1,10 +1,11 @@
 import {
-  DEFAULT_PERIODS,
+  DEFAULT_BASE_PERIODS,
   IDENTITY_ORDER,
   isOrder,
   type MachineDef,
   machinesFor,
   NAMES,
+  pulsePeriod,
   randomOrder,
   STARTING_CREDITS,
 } from './machines';
@@ -17,8 +18,8 @@ export interface GameState {
   /** Everything ever deposited, including what was spent. */
   earned: number;
   levels: number[];
-  /** Seconds between each machine's pulses; per machine so it can be changed later. */
-  periods: number[];
+  /** Each machine's seconds per pulse at level 1; per machine so it can be changed later. */
+  basePeriods: number[];
   /** Seconds into each machine's current pulse. */
   phases: number[];
   /** Credits each machine has produced this pulse, not yet in the balance. */
@@ -42,7 +43,7 @@ export function freshState(): GameState {
     credits: STARTING_CREDITS,
     earned: STARTING_CREDITS,
     levels: NAMES.map(() => 0),
-    periods: [...DEFAULT_PERIODS],
+    basePeriods: [...DEFAULT_BASE_PERIODS],
     phases: NAMES.map(() => 0),
     pending: NAMES.map(() => 0),
     order: randomOrder(),
@@ -141,9 +142,15 @@ function thin(state: GameState): void {
   state.history = kept.reverse();
 }
 
+/** Seconds per pulse of each machine at its current level. */
+export function periodsOf(state: GameState): number[] {
+  return state.basePeriods.map((base, i) => pulsePeriod(base, state.levels[i]));
+}
+
 /** How far each machine's pulse has risen (0..1), or null for a machine not yet built. */
 export function pulseProgress(state: GameState): (number | null)[] {
-  return state.levels.map((level, i) => (level > 0 ? state.phases[i] / state.periods[i] : null));
+  const periods = periodsOf(state);
+  return state.levels.map((level, i) => (level > 0 ? state.phases[i] / periods[i] : null));
 }
 
 /**
@@ -151,10 +158,10 @@ export function pulseProgress(state: GameState): (number | null)[] {
  * and is deposited whenever its pulse reaches the top, so the total over time is
  * unchanged; only when it arrives depends on the period.
  */
-function runMachines(state: GameState, prod: number[], dt: number): void {
+function runMachines(state: GameState, prod: number[], periods: number[], dt: number): void {
   prod.forEach((rate, i) => {
     if (state.levels[i] <= 0) return;
-    const period = state.periods[i];
+    const period = periods[i];
     const t = state.phases[i] + dt;
     const pulses = Math.floor(t / period);
     if (pulses > 0) {
@@ -179,12 +186,14 @@ export function advance(state: GameState, dt: number, smooth = false): void {
   const machines = machinesOf(state);
   // Self-heal a state that predates the running total (e.g. kept alive across a hot reload).
   if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels, machines);
-  if (!state.periods) Object.assign(state, { periods: [...DEFAULT_PERIODS], phases: NAMES.map(() => 0), pending: NAMES.map(() => 0) });
+  if (!state.basePeriods) Object.assign(state, { basePeriods: [...DEFAULT_BASE_PERIODS] });
+  if (!state.phases) Object.assign(state, { phases: NAMES.map(() => 0), pending: NAMES.map(() => 0) });
   const prod = machines.map((m, i) => m.production(state.levels[i]));
+  const periods = periodsOf(state);
   let remaining = dt;
   while (remaining > 0) {
     const step = smooth ? Math.min(remaining, Math.max(MIN_SPACING, remaining * 0.03)) : remaining;
-    runMachines(state, prod, step);
+    runMachines(state, prod, periods, step);
     state.time += step;
     remaining -= step;
     record(state);
@@ -228,7 +237,9 @@ export function loadGame(): GameState {
           const v = Array.isArray(a) ? Number(a[i]) : NaN;
           return Number.isFinite(v) && v >= min ? v : fallback[i];
         });
-      const periods = nums(s.periods, DEFAULT_PERIODS, 0.001);
+      // Saves from before levels slowed pulses stored the level-1 periods as `periods`.
+      const legacy = s as { periods?: unknown };
+      const basePeriods = nums(s.basePeriods ?? legacy.periods, DEFAULT_BASE_PERIODS, 0.001);
       const zeros = NAMES.map(() => 0);
       const state: GameState = {
         credits,
@@ -236,8 +247,8 @@ export function loadGame(): GameState {
         earned: Number.isFinite(s.earned) ? s.earned : credits + spentOn(levels, machinesFor(order)),
         levels,
         // Older saves had continuous production; their machines start a fresh pulse.
-        periods,
-        phases: nums(s.phases, zeros, 0).map((p, i) => Math.min(p, periods[i])),
+        basePeriods,
+        phases: nums(s.phases, zeros, 0).map((p, i) => Math.min(p, pulsePeriod(basePeriods[i], levels[i]))),
         pending: nums(s.pending, zeros, 0),
         order,
         time: s.time ?? 0,

@@ -10,6 +10,7 @@ import {
   type IdleReport,
   loadGame,
   machinesOf,
+  periodsOf,
   pulseProgress,
   saveGame,
   sync,
@@ -97,7 +98,8 @@ export default function App() {
   // Read by the tank every animation frame, outside React renders.
   const pulses = useCallback(() => {
     const s = game.current;
-    return pulseProgress(s).map((p, i) => (s.periods[i] / speedRef.current < MIN_VISIBLE_PULSE_S ? null : p));
+    const periods = periodsOf(s);
+    return pulseProgress(s).map((p, i) => (periods[i] / speedRef.current < MIN_VISIBLE_PULSE_S ? null : p));
   }, []);
 
   const purchase = useCallback(
@@ -220,7 +222,7 @@ export default function App() {
           <Tank
             machines={machinesOf(s)}
             levels={s.levels}
-            periods={s.periods}
+            periods={periodsOf(s)}
             credits={s.credits}
             rate={rate.current}
             pulses={pulses}

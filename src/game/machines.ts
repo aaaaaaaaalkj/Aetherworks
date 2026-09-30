@@ -98,8 +98,16 @@ export function machinesFor(order: number[]): MachineDef[] {
 export const STARTING_CREDITS = 1;
 
 /**
- * Default seconds between a slot's pulses, left (fast) to right (slow). Credits
- * pile up inside a machine and reach the balance when its pulse tops out; the
- * period only changes when credits arrive, never how many.
+ * Default seconds between a slot's pulses at level 1, left (fast) to right (slow).
+ * Credits pile up inside a machine and reach the balance when its pulse tops out;
+ * the period only changes when credits arrive, never how many.
  */
-export const DEFAULT_PERIODS = [5, 10, 20, 40, 75, 150, 300, 600];
+export const DEFAULT_BASE_PERIODS = [5, 10, 20, 40, 75, 150, 300, 600];
+
+/** Every level after the first makes a machine's pulse this much longer. */
+export const PERIOD_GROWTH = 1.5;
+
+/** Seconds per pulse for a machine with the given level-1 period at the given level. */
+export function pulsePeriod(basePeriod: number, level: number): number {
+  return basePeriod * PERIOD_GROWTH ** Math.max(0, level - 1);
+}
