@@ -29,7 +29,7 @@ Once any machine has reached level 3, the **Prestige** view lets you end the run
 - one of the 3 metrics (cost, payout, pulse duration),
 - one of the 3 highest levels reached so far.
 
-The boost for one metric of one machine at one level is the product of the three pools that meet there, so a boost needs points in all three. Its effect is `(1 + boost)^(1/6)`: three prestiges of 500 points give ×22, three of 8,000 give ×90. Payout is multiplied by it; cost and pulse duration are divided by it. The heatmap shows the boosts on the three highest levels, and hovering or picking a pool previews what it would raise. Levels that fall out of the top three keep their boosts but can no longer be chosen.
+Every pool starts at 1 and grows by the points put into it. The boost for one metric of one machine at one level is the product of the three pools that meet there, so it starts at 1 everywhere, and its effect is `boost^(1/6)`. One prestige of 500 points gives ×2.8 to everything that pool touches; three of 500 into the machine, metric and level of one cell give ×22, three of 8,000 give ×90. Payout is multiplied by it; cost and pulse duration are divided by it. The heatmap shows the boosts on the three highest levels, and hovering or picking a pool previews what it would raise. Levels that fall out of the top three keep their boosts but can no longer be chosen.
 
 Prestige resets every machine to level 0 and the credits to the starting 1. Game time, the history and the slot deal carry on, and the chart marks each prestige.
 

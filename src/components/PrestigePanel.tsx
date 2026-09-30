@@ -9,6 +9,7 @@ import {
   choosableLevels,
   METRICS,
   multiplier,
+  poolValue,
   type Pools,
   PRESTIGE_MIN_LEVEL,
   prestigePoints,
@@ -102,10 +103,10 @@ export function PrestigePanel({ state, onPrestige }: Props) {
             key={name}
             {...option({ kind: 'machine', index: m })}
             style={{ '--c': `var(--series-${m + 1})` } as CSSProperties}
-            title={`${name}: ${formatPoints(pools.machine[m])} points`}
+            title={`${name}: ${formatPoints(poolValue(pools, { kind: 'machine', index: m }))}`}
           >
             <span className="chip" />
-            <span className="pts">{formatPoints(pools.machine[m])}</span>
+            <span className="pts">{formatPoints(poolValue(pools, { kind: 'machine', index: m }))}</span>
           </button>
         ))}
 
@@ -114,19 +115,19 @@ export function PrestigePanel({ state, onPrestige }: Props) {
             <button
               {...option({ kind: 'metric', index: metric }, 'hm-metric')}
               style={{ gridRow: `span ${levels.length}` }}
-              title={`${metricName}: ${formatPoints(pools.metric[metric])} points`}
+              title={`${metricName}: ${formatPoints(poolValue(pools, { kind: 'metric', index: metric }))}`}
             >
               {metricName}
-              <span className="pts">{formatPoints(pools.metric[metric])}</span>
+              <span className="pts">{formatPoints(poolValue(pools, { kind: 'metric', index: metric }))}</span>
             </button>
             {levels.map((L) => (
               <Fragment key={L}>
                 <button
                   {...option({ kind: 'level', index: L }, 'hm-level')}
-                  title={`Level ${L}: ${formatPoints(pools.level[L] ?? 0)} points`}
+                  title={`Level ${L}: ${formatPoints(poolValue(pools, { kind: 'level', index: L }))}`}
                 >
                   L{L}
-                  <span className="pts">{formatPoints(pools.level[L] ?? 0)}</span>
+                  <span className="pts">{formatPoints(poolValue(pools, { kind: 'level', index: L }))}</span>
                 </button>
                 {NAMES.map((name, m) => {
                   const now = multiplier(pools, m, metric, L);
@@ -153,7 +154,7 @@ export function PrestigePanel({ state, onPrestige }: Props) {
         ))}
       </div>
       <p className="prestige-foot">
-        Boost = machine × metric × level points; effect (1 + boost)
+        Boost = machine × metric × level, each 1 plus its points; effect boost
         <sup>1/{Math.round(1 / BOOST_EXPONENT)}</sup>. Cost and duration are divided by it, payout multiplied. Prestige resets machines and credits; lower levels keep their boosts.
       </p>
     </section>
