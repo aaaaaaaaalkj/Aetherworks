@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { HistoryPoint } from '../game/engine';
 import { formatDuration, formatLog } from '../game/format';
 import { type MachineDef, NAMES } from '../game/machines';
+import { assign, type Choice, emptyPools, METRICS, multiplier, PAYOUT } from '../game/prestige';
 
 interface Props {
   machines: MachineDef[];
   history: HistoryPoint[];
   purchases: [number, number][];
+  prestiges: [number, number, Choice][];
   now: number;
   credits: number;
   earned: number;
@@ -40,7 +42,7 @@ const MIN_TICK_GAP = 34;
  * Credits (log) against how long ago (log): now is the right edge, the recent past
  * is expanded and the start of the game is compressed at the left.
  */
-export function CreditChart({ machines, history, purchases, now, credits, earned }: Props) {
+export function CreditChart({ machines, history, purchases, prestiges, now, credits, earned }: Props) {
   const slotRef = useRef<HTMLDivElement>(null);
   const [slot, setSlot] = useState({ width: 800, height: MAX_HEIGHT + PANEL_Y });
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -101,18 +103,34 @@ export function CreditChart({ machines, history, purchases, now, credits, earned
   });
 
   // The area under the total is split by each machine's share of production at
-  // that moment, rebuilt from the purchase log; the right edge is the current mix.
-  // Where the mix changes, the old mix is repeated at the same x for a sharp step.
-  const levels = machines.map(() => 0);
+  // that moment, rebuilt from the purchase and prestige logs; the right edge is the
+  // current mix. Where the mix changes, the old mix is repeated at the same x for a
+  // sharp step.
+  let levels = machines.map(() => 0);
+  let pools = emptyPools(machines.length);
   let bought = 0;
+  let prestiged = 0;
   let mix: number[] | null = null;
   const cols: [number, number, number[]][] = [];
   for (const [t, , total] of points) {
-    while (bought < purchases.length && purchases[bought][0] <= t) {
-      const i = purchases[bought++][1];
-      if (i in levels) levels[i] += 1;
+    // A prestige is recorded as two samples at the same moment, before and after;
+    // it applies from the second one, after any purchases made at that moment.
+    for (;;) {
+      const nextBuy = bought < purchases.length ? purchases[bought][0] : Infinity;
+      const nextPrestige = prestiged < prestiges.length ? prestiges[prestiged][0] : Infinity;
+      const buyDue = nextBuy <= t;
+      const prestigeDue = nextPrestige < t;
+      if (!buyDue && !prestigeDue) break;
+      if (buyDue && (nextBuy <= nextPrestige || !prestigeDue)) {
+        const i = purchases[bought++][1];
+        if (i in levels) levels[i] += 1;
+      } else {
+        const [, pts, choice] = prestiges[prestiged++];
+        pools = assign(pools, choice, pts);
+        levels = machines.map(() => 0);
+      }
     }
-    const prod = machines.map((m, i) => m.production(levels[i]));
+    const prod = machines.map((m, i) => m.production(levels[i]) * multiplier(pools, i, PAYOUT, levels[i]));
     const sum = prod.reduce((a, b) => a + b, 0);
     const shares = prod.map((p) => (sum > 0 ? p / sum : 0));
     if (mix && shares.some((s, i) => s !== mix![i])) cols.push([t, total, mix]);
@@ -202,6 +220,22 @@ export function CreditChart({ machines, history, purchases, now, credits, earned
               >
                 <title>{`${NAMES[i]}, ${formatDuration(now - t)} ago`}</title>
               </line>
+            ))}
+
+            {/* Prestiges: the run ends, the totals drop and a new run starts. */}
+            {prestiges.map(([t, pts, choice], k) => (
+              <g key={k} className="prestige-mark">
+                <line x1={x(t)} x2={x(t)} y1={M.top} y2={M.top + plotH} />
+                <path d={`M${x(t) - 4},${M.top} h8 l-4,6 z`}>
+                  <title>{`Prestige, ${formatDuration(now - t)} ago: ${pts.toLocaleString('en-US')} points to ${
+                    choice.kind === 'machine'
+                      ? NAMES[choice.index]
+                      : choice.kind === 'metric'
+                        ? METRICS[choice.index]
+                        : `level ${choice.index}`
+                  }`}</title>
+                </path>
+              </g>
             ))}
 
             {hover && (

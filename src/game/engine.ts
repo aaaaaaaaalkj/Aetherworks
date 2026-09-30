@@ -9,13 +9,26 @@ import {
   randomOrder,
   STARTING_CREDITS,
 } from './machines';
+import {
+  assign,
+  type Choice,
+  COST,
+  DURATION,
+  emptyPools,
+  isChoice,
+  multiplier,
+  PAYOUT,
+  type Pools,
+  PRESTIGE_MIN_LEVEL,
+  prestigePoints,
+} from './prestige';
 
-/** [game time in seconds, log10(credits held) or null when empty, log10(credits earned in total)] */
+/** [game time in seconds, log10(credits held) or null when empty, log10(credits earned this run)] */
 export type HistoryPoint = [number, number | null, number];
 
 export interface GameState {
   credits: number;
-  /** Everything ever deposited, including what was spent. */
+  /** Everything deposited this run, including what was spent. */
   earned: number;
   levels: number[];
   /** Each machine's seconds per pulse at level 1; per machine so it can be changed later. */
@@ -31,6 +44,14 @@ export interface GameState {
   history: HistoryPoint[];
   /** [game time, machine index] of every purchase. */
   purchases: [number, number][];
+  /** Upgrades bought this run; squared, they are the prestige points. */
+  upgrades: number;
+  /** Highest level any machine has reached, over all runs. */
+  bestLevel: number;
+  /** Prestige points put into each machine, metric and level. */
+  pools: Pools;
+  /** [game time, points, choice] of every prestige. */
+  prestiges: [number, number, Choice][];
   /** Wall-clock time (ms) up to which the game has been simulated. */
   syncedAt: number;
 }
@@ -50,6 +71,10 @@ export function freshState(): GameState {
     time: 0,
     history: [[0, Math.log10(STARTING_CREDITS), Math.log10(STARTING_CREDITS)]],
     purchases: [],
+    upgrades: 0,
+    bestLevel: 0,
+    pools: emptyPools(NAMES.length),
+    prestiges: [],
     syncedAt: Date.now(),
   };
 }
@@ -90,12 +115,23 @@ export function machinesOf(state: GameState): MachineDef[] {
   return machinesFor(state.order);
 }
 
+/** Credits to take machine i to level L, after prestige boosts. */
+export function costOf(state: GameState, i: number, L: number): number {
+  return machinesOf(state)[i].cost(L) / multiplier(state.pools, i, COST, L);
+}
+
+/** Credits per second machine i makes at its current level, after prestige boosts. */
+export function productionOf(state: GameState, i: number): number {
+  const L = state.levels[i];
+  return L > 0 ? machinesOf(state)[i].production(L) * multiplier(state.pools, i, PAYOUT, L) : 0;
+}
+
 export function totalRate(state: GameState): number {
-  return machinesOf(state).reduce((sum, m, i) => sum + m.production(state.levels[i]), 0);
+  return NAMES.reduce((sum, _, i) => sum + productionOf(state, i), 0);
 }
 
 export function nextCost(state: GameState, i: number): number {
-  return machinesOf(state)[i].cost(state.levels[i] + 1);
+  return costOf(state, i, state.levels[i] + 1);
 }
 
 export function canBuy(state: GameState, i: number): boolean {
@@ -144,7 +180,9 @@ function thin(state: GameState): void {
 
 /** Seconds per pulse of each machine at its current level. */
 export function periodsOf(state: GameState): number[] {
-  return state.basePeriods.map((base, i) => pulsePeriod(base, state.levels[i]));
+  return state.basePeriods.map(
+    (base, i) => pulsePeriod(base, state.levels[i]) / multiplier(state.pools, i, DURATION, state.levels[i]),
+  );
 }
 
 /** How far each machine's pulse has risen (0..1), or null for a machine not yet built. */
@@ -188,7 +226,8 @@ export function advance(state: GameState, dt: number, smooth = false): void {
   if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels, machines);
   if (!state.basePeriods) Object.assign(state, { basePeriods: [...DEFAULT_BASE_PERIODS] });
   if (!state.phases) Object.assign(state, { phases: NAMES.map(() => 0), pending: NAMES.map(() => 0) });
-  const prod = machines.map((m, i) => m.production(state.levels[i]));
+  if (!state.pools) Object.assign(state, freshPrestige(state));
+  const prod = machines.map((_, i) => productionOf(state, i));
   const periods = periodsOf(state);
   let remaining = dt;
   while (remaining > 0) {
@@ -205,9 +244,56 @@ export function buy(state: GameState, i: number): boolean {
   record(state, true);
   state.credits = Math.max(0, state.credits - nextCost(state, i));
   state.levels[i] += 1;
+  state.upgrades += 1;
+  state.bestLevel = Math.max(state.bestLevel, state.levels[i]);
   state.purchases.push([state.time, i]);
   record(state, true);
   return true;
+}
+
+/** Prestige fields for a state that predates prestige. */
+function freshPrestige(state: Pick<GameState, 'levels' | 'purchases'>) {
+  return {
+    upgrades: state.purchases.length,
+    bestLevel: Math.max(0, ...state.levels),
+    pools: emptyPools(NAMES.length),
+    prestiges: [] as [number, number, Choice][],
+  };
+}
+
+export function canPrestige(state: GameState): boolean {
+  return state.bestLevel >= PRESTIGE_MIN_LEVEL && state.upgrades > 0;
+}
+
+/**
+ * Puts this run's points into the chosen pool and starts a new run: every machine
+ * back to level 0, credits back to the starting amount. Game time, the history,
+ * the slot deal and all prestige pools carry over.
+ */
+export function prestige(state: GameState, choice: Choice): boolean {
+  if (!canPrestige(state)) return false;
+  const points = prestigePoints(state.upgrades);
+  record(state, true);
+  state.pools = assign(state.pools, choice, points);
+  state.prestiges.push([state.time, points, choice]);
+  state.levels = NAMES.map(() => 0);
+  state.phases = NAMES.map(() => 0);
+  state.pending = NAMES.map(() => 0);
+  state.credits = STARTING_CREDITS;
+  state.earned = STARTING_CREDITS;
+  state.upgrades = 0;
+  record(state, true);
+  return true;
+}
+
+function cleanPools(p: unknown): Pools {
+  const pools = emptyPools(NAMES.length);
+  const o = (p ?? {}) as Partial<Pools>;
+  const num = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
+  pools.machine = pools.machine.map((_, i) => num(o.machine?.[i]));
+  pools.metric = pools.metric.map((_, i) => num(o.metric?.[i]));
+  for (const [k, v] of Object.entries(o.level ?? {})) if (num(v) > 0) pools.level[Number(k)] = num(v);
+  return pools;
 }
 
 /** Drops unusable samples and fills in a missing total from the held balance. */
@@ -254,9 +340,18 @@ export function loadGame(): GameState {
         time: s.time ?? 0,
         history: Array.isArray(s.history) ? cleanHistory(s.history) : [],
         purchases: Array.isArray(s.purchases) ? s.purchases : [],
+        ...freshPrestige({ levels, purchases: Array.isArray(s.purchases) ? s.purchases : [] }),
         // Older saves stored the save time as savedAt.
         syncedAt: s.syncedAt ?? (s as { savedAt?: number }).savedAt ?? Date.now(),
       };
+      if ('pools' in s) {
+        state.upgrades = Number.isFinite(s.upgrades) ? s.upgrades : state.upgrades;
+        state.bestLevel = Math.max(state.bestLevel, Number.isFinite(s.bestLevel) ? s.bestLevel : 0);
+        state.pools = cleanPools(s.pools);
+        state.prestiges = Array.isArray(s.prestiges)
+          ? s.prestiges.filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && isChoice(p[2]))
+          : [];
+      }
       return state;
     }
   } catch {

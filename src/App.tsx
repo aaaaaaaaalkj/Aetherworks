@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CreditChart } from './components/CreditChart';
+import { PrestigePanel } from './components/PrestigePanel';
 import { Tank } from './components/Tank';
 import {
   advance,
@@ -10,7 +11,9 @@ import {
   type IdleReport,
   loadGame,
   machinesOf,
+  nextCost,
   periodsOf,
+  prestige,
   pulseProgress,
   saveGame,
   sync,
@@ -18,6 +21,7 @@ import {
 } from './game/engine';
 import { formatDuration } from './game/format';
 import { NAMES } from './game/machines';
+import type { Choice } from './game/prestige';
 
 const RENDER_INTERVAL_MS = 100;
 const SAVE_INTERVAL_MS = 5000;
@@ -49,7 +53,7 @@ export default function App() {
   const game = useRef(boot);
   const rate = useRef(totalRate(boot));
   const [away, setAway] = useState<IdleReport | null>(null);
-  const [view, setView] = useState<'history' | 'cheats'>('history');
+  const [view, setView] = useState<'history' | 'prestige' | 'cheats'>('history');
   const speedRef = useRef(1);
   const [speed, setSpeedState] = useState(1);
   const [, setFrame] = useState(0);
@@ -111,6 +115,14 @@ export default function App() {
     [rerender],
   );
 
+  const doPrestige = (choice: Choice) => {
+    if (!prestige(game.current, choice)) return;
+    rate.current = totalRate(game.current);
+    saveGame(game.current);
+    // Straight to the chart, where the drop shows.
+    setView('history');
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -164,6 +176,9 @@ export default function App() {
           <button className={view === 'history' ? 'on' : ''} onClick={() => setView('history')}>
             History
           </button>
+          <button className={view === 'prestige' ? 'on' : ''} onClick={() => setView('prestige')}>
+            Prestige
+          </button>
           <button className={view === 'cheats' ? 'on' : ''} onClick={() => setView('cheats')}>
             Cheats
           </button>
@@ -183,12 +198,17 @@ export default function App() {
             machines={machinesOf(s)}
             history={s.history}
             purchases={s.purchases}
+            prestiges={s.prestiges}
             now={s.time}
             credits={s.credits}
             earned={s.earned}
           />
+        ) : view === 'prestige' ? (
+          <div className="slot scroll-slot">
+            <PrestigePanel state={s} onPrestige={doPrestige} />
+          </div>
         ) : (
-          <div className="slot cheats-slot">
+          <div className="slot scroll-slot">
             <section className="panel controls" aria-label="Cheats">
               <div className="group">
                 {SPEEDS.map((v) => (
@@ -222,6 +242,7 @@ export default function App() {
           <Tank
             machines={machinesOf(s)}
             levels={s.levels}
+            nextCosts={NAMES.map((_, i) => nextCost(s, i))}
             periods={periodsOf(s)}
             credits={s.credits}
             rate={rate.current}

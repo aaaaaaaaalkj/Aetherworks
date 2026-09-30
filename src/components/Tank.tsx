@@ -5,6 +5,8 @@ import type { MachineDef } from '../game/machines';
 interface Props {
   machines: MachineDef[];
   levels: number[];
+  /** Each machine's next level cost, after prestige boosts. */
+  nextCosts: number[];
   periods: number[];
   credits: number;
   rate: number;
@@ -24,7 +26,7 @@ const MIN_PULSE_BAR_PX = 24;
  * A pulse climbs each built machine's bar; when it reaches the top, what the
  * machine made during that pulse lands in the balance.
  */
-export function Tank({ machines, levels, periods, credits, rate, pulses, onBuy }: Props) {
+export function Tank({ machines, levels, nextCosts, periods, credits, rate, pulses, onBuy }: Props) {
   const tracks = useRef<(HTMLSpanElement | null)[]>([]);
 
   // Pulses move every frame, so they are placed directly rather than re-rendered.
@@ -46,7 +48,7 @@ export function Tank({ machines, levels, periods, credits, rate, pulses, onBuy }
     return () => cancelAnimationFrame(raf);
   }, [pulses]);
 
-  const costs = machines.map((m, i) => Math.log10(m.cost(levels[i] + 1)));
+  const costs = nextCosts.map((c) => Math.log10(c));
   const floor = rate > 0 ? Math.log10(rate) - 0.5 : Math.min(...costs) - 1;
   const ceil = Math.max(Math.max(...costs) + 0.4, floor + 3);
   const span = ceil - floor;
