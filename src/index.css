@@ -296,6 +296,36 @@ kbd {
     opacity 0.2s;
 }
 
+/* Same box as the bar, but not faded with it, so the pulse reads on any bar. */
+.pulse-track {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: min(56px, 80%);
+  transform: translateX(-50%);
+  overflow: hidden;
+  border-radius: 4px 4px 0 0;
+  pointer-events: none;
+  transition: height 0.35s ease-out;
+}
+
+/* A bright crest at --p of the bar's height, with a fading wake below it. */
+.pulse {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--p, 0%) - 14px);
+  height: 14px;
+  border-top: 2px solid color-mix(in srgb, var(--c) 35%, white);
+  background: linear-gradient(to top, transparent, color-mix(in srgb, var(--c) 70%, white));
+  opacity: 0.9;
+}
+
+.pulsing .pulse {
+  display: block;
+}
+
 .bar-slot.ready .bar {
   opacity: 1;
 }

@@ -10,6 +10,7 @@ import {
   type IdleReport,
   loadGame,
   machinesOf,
+  pulseProgress,
   saveGame,
   sync,
   totalRate,
@@ -38,6 +39,8 @@ const AWAY: [string, number][] = [
 ];
 const speedLabel = (s: number) => (s >= 1000 ? `${s / 1000}k×` : `${s}×`);
 const NOTICE_MS = 12_000;
+/** A pulse that would rise faster than this (in real seconds) is a blur; don't draw it. */
+const MIN_VISIBLE_PULSE_S = 0.5;
 const NOTICE_MIN_IDLE_S = 60;
 
 export default function App() {
@@ -65,7 +68,7 @@ export default function App() {
     let lastRender = 0;
     const loop = (now: number) => {
       if (!document.hidden) {
-        const idle = sync(game.current, rate.current, speedRef.current, Date.now());
+        const idle = sync(game.current, speedRef.current, Date.now());
         if (idle && idle.idleSeconds >= NOTICE_MIN_IDLE_S) setAway(idle);
       }
       if (now - lastRender > RENDER_INTERVAL_MS) {
@@ -89,6 +92,12 @@ export default function App() {
       window.removeEventListener('beforeunload', save);
       document.removeEventListener('visibilitychange', onHide);
     };
+  }, []);
+
+  // Read by the tank every animation frame, outside React renders.
+  const pulses = useCallback(() => {
+    const s = game.current;
+    return pulseProgress(s).map((p, i) => (s.periods[i] / speedRef.current < MIN_VISIBLE_PULSE_S ? null : p));
   }, []);
 
   const purchase = useCallback(
@@ -121,7 +130,7 @@ export default function App() {
   };
 
   const skip = (seconds: number) => {
-    advance(game.current, seconds, rate.current, true);
+    advance(game.current, seconds, true);
     rerender();
   };
 
@@ -208,7 +217,15 @@ export default function App() {
           </div>
         )}
         <div className="dock">
-          <Tank machines={machinesOf(s)} levels={s.levels} credits={s.credits} rate={rate.current} onBuy={purchase} />
+          <Tank
+            machines={machinesOf(s)}
+            levels={s.levels}
+            periods={s.periods}
+            credits={s.credits}
+            rate={rate.current}
+            pulses={pulses}
+            onBuy={purchase}
+          />
         </div>
       </main>
     </div>

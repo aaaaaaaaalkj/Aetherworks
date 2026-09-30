@@ -96,3 +96,10 @@ export function machinesFor(order: number[]): MachineDef[] {
 
 /** Exactly enough to build the cheapest first level. */
 export const STARTING_CREDITS = 1;
+
+/**
+ * Default seconds between a slot's pulses, left (fast) to right (slow). Credits
+ * pile up inside a machine and reach the balance when its pulse tops out; the
+ * period only changes when credits arrive, never how many.
+ */
+export const DEFAULT_PERIODS = [5, 10, 20, 40, 75, 150, 300, 600];

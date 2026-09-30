@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PERIODS,
   IDENTITY_ORDER,
   isOrder,
   type MachineDef,
@@ -13,9 +14,15 @@ export type HistoryPoint = [number, number | null, number];
 
 export interface GameState {
   credits: number;
-  /** Everything ever produced, including what was spent. */
+  /** Everything ever deposited, including what was spent. */
   earned: number;
   levels: number[];
+  /** Seconds between each machine's pulses; per machine so it can be changed later. */
+  periods: number[];
+  /** Seconds into each machine's current pulse. */
+  phases: number[];
+  /** Credits each machine has produced this pulse, not yet in the balance. */
+  pending: number[];
   /** Which cost ladder each slot got, dealt at random when the game starts. */
   order: number[];
   /** Game seconds since the start, including warped and skipped time. */
@@ -35,6 +42,9 @@ export function freshState(): GameState {
     credits: STARTING_CREDITS,
     earned: STARTING_CREDITS,
     levels: NAMES.map(() => 0),
+    periods: [...DEFAULT_PERIODS],
+    phases: NAMES.map(() => 0),
+    pending: NAMES.map(() => 0),
     order: randomOrder(),
     time: 0,
     history: [[0, Math.log10(STARTING_CREDITS), Math.log10(STARTING_CREDITS)]],
@@ -62,16 +72,16 @@ export interface IdleReport {
  * background or the machine was asleep; it is converted with the idle rule and
  * reported so the player can be told.
  */
-export function sync(state: GameState, rate: number, speed: number, nowMs: number): IdleReport | null {
+export function sync(state: GameState, speed: number, nowMs: number): IdleReport | null {
   const gap = (nowMs - state.syncedAt) / 1000;
   state.syncedAt = nowMs;
   if (!(gap > 0)) return null;
   if (gap > IDLE_THRESHOLD_S) {
     const gameSeconds = idleToGameSeconds(gap);
-    advance(state, gameSeconds, rate, true);
+    advance(state, gameSeconds, true);
     return { idleSeconds: gap, gameSeconds };
   }
-  advance(state, gap * speed, rate);
+  advance(state, gap * speed);
   return null;
 }
 
@@ -131,18 +141,50 @@ function thin(state: GameState): void {
   state.history = kept.reverse();
 }
 
+/** How far each machine's pulse has risen (0..1), or null for a machine not yet built. */
+export function pulseProgress(state: GameState): (number | null)[] {
+  return state.levels.map((level, i) => (level > 0 ? state.phases[i] / state.periods[i] : null));
+}
+
+/**
+ * Runs every built machine for `dt` seconds. Production collects in the machine
+ * and is deposited whenever its pulse reaches the top, so the total over time is
+ * unchanged; only when it arrives depends on the period.
+ */
+function runMachines(state: GameState, prod: number[], dt: number): void {
+  prod.forEach((rate, i) => {
+    if (state.levels[i] <= 0) return;
+    const period = state.periods[i];
+    const t = state.phases[i] + dt;
+    const pulses = Math.floor(t / period);
+    if (pulses > 0) {
+      // Everything produced up to the last pulse boundary goes into the balance.
+      const deposit = state.pending[i] + rate * (pulses * period - state.phases[i]);
+      state.credits += deposit;
+      state.earned += deposit;
+      state.phases[i] = t - pulses * period;
+      state.pending[i] = rate * state.phases[i];
+    } else {
+      state.phases[i] = t;
+      state.pending[i] += rate * dt;
+    }
+  });
+}
+
 /**
  * Advances game time. With `smooth`, a long jump (skip, time away) is recorded as
  * many samples that crowd toward its end, matching the chart's age axis.
  */
-export function advance(state: GameState, dt: number, rate: number, smooth = false): void {
+export function advance(state: GameState, dt: number, smooth = false): void {
+  const machines = machinesOf(state);
   // Self-heal a state that predates the running total (e.g. kept alive across a hot reload).
-  if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels, machinesOf(state));
+  if (!Number.isFinite(state.earned)) state.earned = state.credits + spentOn(state.levels, machines);
+  if (!state.periods) Object.assign(state, { periods: [...DEFAULT_PERIODS], phases: NAMES.map(() => 0), pending: NAMES.map(() => 0) });
+  const prod = machines.map((m, i) => m.production(state.levels[i]));
   let remaining = dt;
   while (remaining > 0) {
     const step = smooth ? Math.min(remaining, Math.max(MIN_SPACING, remaining * 0.03)) : remaining;
-    state.credits += rate * step;
-    state.earned += rate * step;
+    runMachines(state, prod, step);
     state.time += step;
     remaining -= step;
     record(state);
@@ -181,11 +223,22 @@ export function loadGame(): GameState {
       // Saves from before the shuffle keep the original left-to-right ladders.
       const order = isOrder(s.order) ? s.order : IDENTITY_ORDER;
       const credits = Number.isFinite(s.credits) ? s.credits : STARTING_CREDITS;
+      const nums = (a: unknown, fallback: number[], min: number) =>
+        NAMES.map((_, i) => {
+          const v = Array.isArray(a) ? Number(a[i]) : NaN;
+          return Number.isFinite(v) && v >= min ? v : fallback[i];
+        });
+      const periods = nums(s.periods, DEFAULT_PERIODS, 0.001);
+      const zeros = NAMES.map(() => 0);
       const state: GameState = {
         credits,
         // Older saves lack a running total; it is recoverable from what was bought.
         earned: Number.isFinite(s.earned) ? s.earned : credits + spentOn(levels, machinesFor(order)),
         levels,
+        // Older saves had continuous production; their machines start a fresh pulse.
+        periods,
+        phases: nums(s.phases, zeros, 0).map((p, i) => Math.min(p, periods[i])),
+        pending: nums(s.pending, zeros, 0),
         order,
         time: s.time ?? 0,
         history: Array.isArray(s.history) ? cleanHistory(s.history) : [],
