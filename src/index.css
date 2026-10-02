@@ -143,7 +143,7 @@ kbd {
 /* Full screen on a phone: the camera sits in the middle of the header and the
    corners are rounded. The header keeps its middle free (the estimate splits
    around it, a message moves to a row of its own), and the header and tabs
-   come in from the edges. Safe-area insets are used where the phone reports them. */
+   come in from the edges, or further where the phone reports side insets. */
 .app.fs {
   --fs-side: 24px;
   --camera-gap: 56px;
@@ -152,8 +152,8 @@ kbd {
 .app.fs .toolbar {
   display: grid;
   grid-template-columns: 1fr var(--camera-gap) 1fr auto;
-  padding: max(6px, env(safe-area-inset-top)) max(var(--fs-side), env(safe-area-inset-right)) 6px
-    max(var(--fs-side), env(safe-area-inset-left));
+  /* No top inset: the header shares the camera's row, which the middle gap keeps clear. */
+  padding: 6px max(var(--fs-side), env(safe-area-inset-right)) 6px max(var(--fs-side), env(safe-area-inset-left));
 }
 
 .app.fs .toolbar h1 {
