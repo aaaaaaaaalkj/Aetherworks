@@ -22,7 +22,7 @@ import {
   timeToNextUpgrade,
   totalRate,
 } from './game/engine';
-import { formatDuration } from './game/format';
+import { formatCompact, formatDuration } from './game/format';
 import { NAMES } from './game/machines';
 import { type Choice, describeChoice, METRICS, PRESTIGE_MIN_LEVEL, prestigePoints } from './game/prestige';
 
@@ -241,12 +241,12 @@ export default function App() {
         {/* Nothing while an upgrade is affordable. Long waits also show the idle time that would cover them. */}
         <span className="estimate">
           <span className="next" title="Until the next upgrade can be bought, at the current speed">
-            {wait !== null && wait > 0 && `next ${formatDuration(wait / speed)}`}
+            {wait !== null && wait > 0 && `next ${formatCompact(wait / speed)}`}
             {speed > 1 && <span className="warp"> {speedLabel(speed)}</span>}
           </span>
           {wait !== null && wait > SHOW_IDLE_AFTER_S && (
             <span className="idle" title="Or stay away this long: idle time is squared">
-              idle {formatDuration(gameToIdleSeconds(wait))}
+              idle {formatCompact(gameToIdleSeconds(wait))}
             </span>
           )}
         </span>
@@ -313,17 +313,18 @@ export default function App() {
               <span className="cheat-label" title="Simulate being away (idle time is squared)">
                 Away
               </span>
-              <div className="group">
-                {AWAY.map(([label, secs]) => (
-                  <button key={label} onClick={() => simulateAway(secs)}>
-                    {label}
-                  </button>
-                ))}
+              <div className="cheat-row">
+                <div className="group">
+                  {AWAY.map(([label, secs]) => (
+                    <button key={label} onClick={() => simulateAway(secs)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button className="reset" onClick={reset} title="Reset all progress">
+                  Reset
+                </button>
               </div>
-              <span />
-              <button className="reset" onClick={reset}>
-                Reset all progress
-              </button>
             </section>
           </div>
         )}

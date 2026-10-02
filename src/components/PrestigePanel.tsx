@@ -82,10 +82,10 @@ export function PrestigePanel({ state, onPrestige }: Props) {
         <span className="metric-lock" title="Drawn at random for this run">
           {metricName}
         </span>
-        <span className="prestige-points">
+        <span className="prestige-points" title={status ? undefined : `${state.upgrades} upgrades this run, squared`}>
           {status ?? (
             <>
-              {state.upgrades}² = <strong>{formatPoints(points)}</strong> pts
+              <strong>{formatPoints(points)}</strong> pts
             </>
           )}
         </span>
@@ -97,7 +97,16 @@ export function PrestigePanel({ state, onPrestige }: Props) {
         >
           ?
         </button>
-        <button className="prestige-go" disabled={!ready || !pick} onClick={() => pick && onPrestige(pick)}>
+        <button
+          className="prestige-go"
+          disabled={!ready || !pick}
+          onClick={() => pick && onPrestige(pick)}
+          title={
+            pick
+              ? `${formatPoints(points)} points into the ${describeChoice(pick, NAMES)}. Machines and credits reset.`
+              : 'Pick a machine or a level first'
+          }
+        >
           {pick ? `Prestige → ${pick.kind === 'machine' ? NAMES[pick.index] : `L${pick.index}`}` : 'Prestige'}
         </button>
       </div>
@@ -168,11 +177,6 @@ export function PrestigePanel({ state, onPrestige }: Props) {
             })}
           </div>
         )
-      )}
-      {!help && pick && ready && (
-        <p className="prestige-note">
-          {formatPoints(points)} points into the {describeChoice(pick, NAMES)}. Machines and credits reset.
-        </p>
       )}
     </section>
   );
