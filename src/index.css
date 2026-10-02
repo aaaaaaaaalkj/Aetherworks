@@ -99,15 +99,53 @@ kbd {
   white-space: nowrap;
 }
 
-.clock {
-  font-family: var(--mono);
+.estimate {
+  flex: 1;
+  min-width: 0;
+  font: 13px var(--mono);
   color: var(--text-secondary);
-  min-width: 7ch;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.clock .warp {
+.estimate .idle {
+  color: var(--text-muted);
+}
+
+.estimate .warp {
   color: var(--text-primary);
+}
+
+/* A message takes the estimate's place. */
+.toolbar.has-message .estimate {
+  display: none;
+}
+
+.fullscreen {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.fullscreen:hover {
+  background: var(--grid);
+}
+
+.fullscreen path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .message {
@@ -138,8 +176,7 @@ kbd {
 
 /* On narrow screens a message takes the whole header. */
 @media (max-width: 640px) {
-  .toolbar.has-message h1,
-  .toolbar.has-message .clock {
+  .toolbar.has-message h1 {
     display: none;
   }
 }
@@ -630,6 +667,11 @@ kbd {
 .chart .tick {
   fill: var(--text-muted);
   font: 11px var(--mono);
+}
+
+.chart .tick.start {
+  fill: var(--text-secondary);
+  font-weight: 600;
 }
 
 .earned-line,

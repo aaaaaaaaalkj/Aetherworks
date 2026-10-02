@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { HistoryPoint } from '../game/engine';
-import { formatDuration, formatLog } from '../game/format';
+import { formatCompact, formatDuration, formatLog } from '../game/format';
 import { type MachineDef, NAMES } from '../game/machines';
 import { assign, type Choice, describeChoice, emptyPools, multiplier, PAYOUT } from '../game/prestige';
 
@@ -37,6 +37,7 @@ const AGE_TICKS: [number, string][] = [
   [31_536_000, '−1y'],
 ];
 const MIN_TICK_GAP = 34;
+const START_LABEL_W = 44;
 
 /**
  * Credits (log) against how long ago (log): now is the right edge, the recent past
@@ -90,7 +91,8 @@ export function CreditChart({ machines, history, purchases, prestiges, now, cred
   for (const [age, label] of AGE_TICKS) {
     if (age > Math.max(60, now)) break;
     const prev = xTicks[xTicks.length - 1];
-    const fits = x(now - age) >= M.left + 16;
+    // Leave room for the start label at the left edge.
+    const fits = x(now - age) >= M.left + START_LABEL_W;
     if (fits && (!prev || x(now - prev[0]) - x(now - age) >= MIN_TICK_GAP)) xTicks.push([age, label]);
   }
 
@@ -208,6 +210,11 @@ export function CreditChart({ machines, history, purchases, prestiges, now, cred
               </g>
             ))}
             <line x1={M.left} x2={M.left + plotW} y1={M.top + plotH} y2={M.top + plotH} className="axis" />
+            {/* The game's age, where its history starts. */}
+            <text x={x(0)} y={M.top + plotH + RUG + 12} className="tick start" textAnchor="start">
+              <title>{`Game started ${formatDuration(now)} ago`}</title>
+              {now >= 1 ? `−${formatCompact(now)}` : 'start'}
+            </text>
             {layers.map((d, i) => (
               <path key={i} d={d} className="share-layer" fill={`var(--series-${i + 1})`} />
             ))}

@@ -8,9 +8,10 @@ A minimal idle game about eight machines that turn time into credits.
 
 - Each machine is a bar whose height is the log of what its next level costs.
 - Machines produce in pulses. A pulse climbs each built machine's bar, and when it reaches the top, everything the machine made during that pulse lands in your balance. At level 1 the leftmost machine pulses every 5 seconds, the rightmost every 10 minutes (5s, 10s, 20s, 40s, 75s, 2.5m, 5m, 10m), and every further level makes a machine's pulse 1.5× longer. The pulse only changes when credits arrive, not how many. Hover a bar to see its current period.
+- The header shows how long until the next upgrade can be bought (nothing while one already can). For waits over an hour it also shows how long you would have to stay away instead, since idle time counts squared. The button on the right switches to full screen where the browser allows it.
 - **Auto** (on by default, at the bottom right) buys the cheapest upgrade it can afford. It pauses when you come back after an absence, so you can spend what built up yourself.
 - Your credits are a water line on the same log scale. A bar that is fully under water can be bought (click it or press `1`–`8`). Buying spends the credits, the water drops, and the bar grows to the next level's cost.
-- **Credits over time** plots credits against time since the start, both on log scales, so the past compresses. Coloured ticks below it mark every purchase, and a dashed line marks every prestige, where the run's total drops back to the start. The area under the total is coloured by each machine's share of production at that moment, so the right edge shows today's mix; hover it to see the leading machines.
+- **Credits over time** plots credits against time since the start, both on log scales, so the past compresses. The label at its left end is the game's age. Coloured ticks below it mark every purchase, and a dashed line marks every prestige, where the run's total drops back to the start. The area under the total is coloured by each machine's share of production at that moment, so the right edge shows today's mix; hover it to see the leading machines.
 
 ## The economy
 

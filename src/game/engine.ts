@@ -92,6 +92,11 @@ export function idleToGameSeconds(idleSeconds: number): number {
   return (idleSeconds * idleSeconds) / 3600;
 }
 
+/** How long to stay away to get this much game time. */
+export function gameToIdleSeconds(gameSeconds: number): number {
+  return Math.sqrt(gameSeconds * 3600);
+}
+
 export interface IdleReport {
   idleSeconds: number;
   gameSeconds: number;
@@ -292,6 +297,41 @@ export function prestige(state: GameState, choice: Choice): boolean {
   state.prestigeMetric = randomMetric();
   record(state, true);
   return true;
+}
+
+/**
+ * Game seconds until the balance reaches `cost` with nothing bought meanwhile,
+ * or null if nothing is being produced. Credits arrive in pulses, so this finds
+ * the pulse that tips it over rather than dividing by the rate.
+ */
+export function timeToAfford(state: GameState, cost: number): number | null {
+  const need = cost - state.credits;
+  if (need <= 0) return 0;
+  const periods = periodsOf(state);
+  const built = NAMES.map((_, i) => i).filter((i) => state.levels[i] > 0);
+  const prod = built.map((i) => productionOf(state, i));
+  const rate = prod.reduce((a, b) => a + b, 0);
+  if (!(rate > 0)) return null;
+  // Credits deposited within t seconds: every finished pulse pays what was made up to it.
+  const depositedBy = (t: number) =>
+    built.reduce((sum, i, k) => {
+      const pulses = Math.floor((state.phases[i] + t) / periods[i]);
+      return pulses > 0 ? sum + state.pending[i] + prod[k] * (pulses * periods[i] - state.phases[i]) : sum;
+    }, 0);
+  let hi = need / rate + Math.max(...built.map((i) => periods[i]));
+  while (depositedBy(hi) < need) hi *= 2;
+  let lo = 0;
+  for (let k = 0; k < 50 && hi - lo > 0.01; k++) {
+    const mid = (lo + hi) / 2;
+    if (depositedBy(mid) >= need) hi = mid;
+    else lo = mid;
+  }
+  return hi;
+}
+
+/** Game seconds until the cheapest next upgrade is affordable (0 if one already is), or null if never. */
+export function timeToNextUpgrade(state: GameState): number | null {
+  return timeToAfford(state, Math.min(...NAMES.map((_, i) => nextCost(state, i))));
 }
 
 /** Buys the cheapest affordable upgrade until none is left. Returns how many were bought. */

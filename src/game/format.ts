@@ -5,6 +5,19 @@ export function formatLog(log10: number): string {
   return `${(10 ** (log10 - exp)).toFixed(1)}e${exp}`;
 }
 
+/** Largest unit only: 45s, 12m, 3h, 85d, 2y. */
+export function formatCompact(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  for (const [unit, size] of [
+    ['y', 31_536_000],
+    ['d', 86_400],
+    ['h', 3600],
+    ['m', 60],
+  ] as const)
+    if (s >= size) return `${Math.floor(s / size)}${unit}`;
+  return `${s}s`;
+}
+
 /** Compact duration: 45s, 12m, 3h 20m, 4d 6h, 2y 30d. */
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));

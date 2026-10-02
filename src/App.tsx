@@ -9,6 +9,7 @@ import {
   canBuy,
   clearSave,
   freshState,
+  gameToIdleSeconds,
   type IdleReport,
   loadGame,
   machinesOf,
@@ -18,6 +19,7 @@ import {
   pulseProgress,
   saveGame,
   sync,
+  timeToNextUpgrade,
   totalRate,
 } from './game/engine';
 import { formatDuration } from './game/format';
@@ -54,6 +56,24 @@ type View = 'history' | 'prestige' | 'cheats';
 interface Message {
   id: number;
   body: ReactNode;
+}
+
+/** Shown for waits longer than this: how long to stay away instead, since idle time is squared. */
+const SHOW_IDLE_AFTER_S = 3600;
+
+function useFullscreen() {
+  const [on, setOn] = useState(!!document.fullscreenElement);
+  useEffect(() => {
+    const update = () => setOn(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', update);
+    return () => document.removeEventListener('fullscreenchange', update);
+  }, []);
+  const toggle = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen().catch(() => {});
+  };
+  // iPhone Safari has no fullscreen for pages; the button is hidden there.
+  return { supported: !!document.fullscreenEnabled, on, toggle };
 }
 
 export default function App() {
@@ -191,6 +211,8 @@ export default function App() {
   };
 
   const s = game.current;
+  const fullscreen = useFullscreen();
+  const wait = timeToNextUpgrade(s);
 
   // Announce prestige the moment it unlocks.
   const best = useRef(s.bestLevel);
@@ -216,13 +238,43 @@ export default function App() {
       {/* Title and game age, or whatever the game has to say right now. */}
       <header className={`toolbar${message ? ' has-message' : ''}`}>
         <h1>Aetherworks</h1>
-        <span className="clock" title="Game time since start">
-          {formatDuration(s.time)}
+        {/* Nothing while an upgrade is affordable. Long waits also show the idle time that would cover them. */}
+        <span className="estimate">
+          {wait !== null && wait > 0 && (
+            <>
+              <span title="Until the next upgrade can be bought, at the current speed">
+                next {formatDuration(wait / speed)}
+              </span>
+              {wait > SHOW_IDLE_AFTER_S && (
+                <span className="idle" title="Or stay away this long: idle time is squared">
+                  {' · '}idle {formatDuration(gameToIdleSeconds(wait))}
+                </span>
+              )}
+            </>
+          )}
           {speed > 1 && <span className="warp"> {speedLabel(speed)}</span>}
         </span>
         {message && (
           <button key={message.id} className="message" onClick={() => setMessage(null)} title="Dismiss">
             {message.body}
+          </button>
+        )}
+        {fullscreen.supported && (
+          <button
+            className="fullscreen"
+            onClick={fullscreen.toggle}
+            aria-label={fullscreen.on ? 'Leave full screen' : 'Full screen'}
+            title={fullscreen.on ? 'Leave full screen' : 'Full screen'}
+          >
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+              <path
+                d={
+                  fullscreen.on
+                    ? 'M6 2v4H2M10 2v4h4M6 14v-4H2M10 14v-4h4'
+                    : 'M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4'
+                }
+              />
+            </svg>
           </button>
         )}
       </header>
