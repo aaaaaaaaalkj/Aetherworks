@@ -16,11 +16,13 @@ import {
   DURATION,
   emptyPools,
   isChoice,
+  METRICS,
   multiplier,
   PAYOUT,
   type Pools,
   PRESTIGE_MIN_LEVEL,
   prestigePoints,
+  randomMetric,
 } from './prestige';
 
 /** [game time in seconds, log10(credits held) or null when empty, log10(credits earned this run)] */
@@ -48,10 +50,12 @@ export interface GameState {
   upgrades: number;
   /** Highest level any machine has reached, over all runs. */
   bestLevel: number;
-  /** Prestige points put into each machine, metric and level. */
+  /** Prestige points put into each machine and level, per metric. */
   pools: Pools;
-  /** [game time, points, choice] of every prestige. */
-  prestiges: [number, number, Choice][];
+  /** The metric this run's prestige can improve, drawn when the run starts. */
+  prestigeMetric: number;
+  /** [game time, points, choice] of every prestige; null for ones from before metrics were locked. */
+  prestiges: [number, number, Choice | null][];
   /** Wall-clock time (ms) up to which the game has been simulated. */
   syncedAt: number;
 }
@@ -74,6 +78,7 @@ export function freshState(): GameState {
     upgrades: 0,
     bestLevel: 0,
     pools: emptyPools(NAMES.length),
+    prestigeMetric: randomMetric(),
     prestiges: [],
     syncedAt: Date.now(),
   };
@@ -257,7 +262,8 @@ function freshPrestige(state: Pick<GameState, 'levels' | 'purchases'>) {
     upgrades: state.purchases.length,
     bestLevel: Math.max(0, ...state.levels),
     pools: emptyPools(NAMES.length),
-    prestiges: [] as [number, number, Choice][],
+    prestigeMetric: randomMetric(),
+    prestiges: [] as [number, number, Choice | null][],
   };
 }
 
@@ -266,12 +272,13 @@ export function canPrestige(state: GameState): boolean {
 }
 
 /**
- * Puts this run's points into the chosen pool and starts a new run: every machine
- * back to level 0, credits back to the starting amount. Game time, the history,
- * the slot deal and all prestige pools carry over.
+ * Puts this run's points into the chosen pool of the locked metric and starts a
+ * new run with a newly drawn metric: every machine back to level 0, credits back
+ * to the starting amount. Game time, the history, the slot deal and all prestige
+ * pools carry over.
  */
 export function prestige(state: GameState, choice: Choice): boolean {
-  if (!canPrestige(state)) return false;
+  if (!canPrestige(state) || choice.metric !== state.prestigeMetric) return false;
   const points = prestigePoints(state.upgrades);
   record(state, true);
   state.pools = assign(state.pools, choice, points);
@@ -282,17 +289,42 @@ export function prestige(state: GameState, choice: Choice): boolean {
   state.credits = STARTING_CREDITS;
   state.earned = STARTING_CREDITS;
   state.upgrades = 0;
+  state.prestigeMetric = randomMetric();
   record(state, true);
   return true;
+}
+
+/** Buys the cheapest affordable upgrade until none is left. Returns how many were bought. */
+export function autoBuy(state: GameState): number {
+  let bought = 0;
+  for (;;) {
+    let cheapest = -1;
+    let cost = Infinity;
+    NAMES.forEach((_, i) => {
+      const c = nextCost(state, i);
+      if (c <= state.credits && c < cost) {
+        cost = c;
+        cheapest = i;
+      }
+    });
+    if (cheapest < 0 || !buy(state, cheapest)) return bought;
+    bought++;
+  }
 }
 
 function cleanPools(p: unknown): Pools {
   const pools = emptyPools(NAMES.length);
   const o = (p ?? {}) as Partial<Pools>;
+  // Pools from before metrics were locked had no per-metric rows; they can't be
+  // translated and start over.
+  if (!Array.isArray(o.machine?.[0]) || !Array.isArray(o.level)) return pools;
   const num = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0);
-  pools.machine = pools.machine.map((_, i) => num(o.machine?.[i]));
-  pools.metric = pools.metric.map((_, i) => num(o.metric?.[i]));
-  for (const [k, v] of Object.entries(o.level ?? {})) if (num(v) > 0) pools.level[Number(k)] = num(v);
+  pools.machine = pools.machine.map((row, k) => row.map((_, i) => num(o.machine?.[k]?.[i])));
+  pools.level = pools.level.map((_, k) => {
+    const row: Record<number, number> = {};
+    for (const [L, v] of Object.entries(o.level?.[k] ?? {})) if (num(v) > 0) row[Number(L)] = num(v);
+    return row;
+  });
   return pools;
 }
 
@@ -348,8 +380,13 @@ export function loadGame(): GameState {
         state.upgrades = Number.isFinite(s.upgrades) ? s.upgrades : state.upgrades;
         state.bestLevel = Math.max(state.bestLevel, Number.isFinite(s.bestLevel) ? s.bestLevel : 0);
         state.pools = cleanPools(s.pools);
+        if (Number.isInteger(s.prestigeMetric) && s.prestigeMetric >= 0 && s.prestigeMetric < METRICS.length)
+          state.prestigeMetric = s.prestigeMetric;
+        // Older prestiges keep their place on the chart but no longer count for anything.
         state.prestiges = Array.isArray(s.prestiges)
-          ? s.prestiges.filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && isChoice(p[2]))
+          ? s.prestiges
+              .filter((p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]))
+              .map(([t, pts, c]) => [t, pts, isChoice(c) ? c : null])
           : [];
       }
       return state;

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { CreditChart } from './components/CreditChart';
 import { PrestigePanel } from './components/PrestigePanel';
 import { Tank } from './components/Tank';
 import {
   advance,
+  autoBuy,
   buy,
   canBuy,
   clearSave,
@@ -21,7 +22,7 @@ import {
 } from './game/engine';
 import { formatDuration } from './game/format';
 import { NAMES } from './game/machines';
-import type { Choice } from './game/prestige';
+import { type Choice, describeChoice, METRICS, PRESTIGE_MIN_LEVEL, prestigePoints } from './game/prestige';
 
 const RENDER_INTERVAL_MS = 100;
 const SAVE_INTERVAL_MS = 5000;
@@ -43,19 +44,28 @@ const AWAY: [string, number][] = [
   ['8h', 8 * 3600],
 ];
 const speedLabel = (s: number) => (s >= 1000 ? `${s / 1000}k×` : `${s}×`);
-const NOTICE_MS = 12_000;
+const MESSAGE_MS = 12_000;
 /** A pulse that would rise faster than this (in real seconds) is a blur; don't draw it. */
 const MIN_VISIBLE_PULSE_S = 0.5;
+/** Coming back after at least this long gets a welcome-back message and pauses auto. */
 const NOTICE_MIN_IDLE_S = 60;
+
+type View = 'history' | 'prestige' | 'cheats';
+interface Message {
+  id: number;
+  body: ReactNode;
+}
 
 export default function App() {
   const [boot] = useState(loadGame);
   const game = useRef(boot);
   const rate = useRef(totalRate(boot));
-  const [away, setAway] = useState<IdleReport | null>(null);
-  const [view, setView] = useState<'history' | 'prestige' | 'cheats'>('history');
+  const [message, setMessage] = useState<Message | null>(null);
+  const [view, setView] = useState<View>('history');
   const speedRef = useRef(1);
   const [speed, setSpeedState] = useState(1);
+  const autoRef = useRef(true);
+  const [auto, setAutoState] = useState(true);
   const [, setFrame] = useState(0);
   const rerender = useCallback(() => setFrame((f) => f + 1), []);
 
@@ -63,18 +73,33 @@ export default function App() {
     speedRef.current = s;
     setSpeedState(s);
   };
+  const setAuto = useCallback((on: boolean) => {
+    autoRef.current = on;
+    setAutoState(on);
+  }, []);
+  const say = useCallback((body: ReactNode) => setMessage({ id: Date.now(), body }), []);
 
   // Main loop. sync() compares wall-clock time with how far the game has been
   // simulated: short gaps are active play, long ones (app closed, tab in the
   // background, machine asleep) are idle time. While the tab is hidden nothing is
-  // simulated, so the whole hidden stretch becomes idle time on return.
+  // simulated, so the whole hidden stretch becomes idle time on return. Coming
+  // back from a long absence pauses auto, so the player can spend it themselves.
   useEffect(() => {
     let raf = 0;
     let lastRender = 0;
     const loop = (now: number) => {
       if (!document.hidden) {
         const idle = sync(game.current, speedRef.current, Date.now());
-        if (idle && idle.idleSeconds >= NOTICE_MIN_IDLE_S) setAway(idle);
+        if (idle && idle.idleSeconds >= NOTICE_MIN_IDLE_S) {
+          setAuto(false);
+          say(
+            <>
+              Welcome back. <strong>{formatDuration(idle.idleSeconds)}</strong> away counted as{' '}
+              <strong>{formatDuration(idle.gameSeconds)}</strong>. Auto is paused.
+            </>,
+          );
+        }
+        if (autoRef.current && autoBuy(game.current) > 0) rate.current = totalRate(game.current);
       }
       if (now - lastRender > RENDER_INTERVAL_MS) {
         lastRender = now;
@@ -84,7 +109,7 @@ export default function App() {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [rerender]);
+  }, [rerender, say, setAuto]);
 
   useEffect(() => {
     const save = () => saveGame(game.current);
@@ -116,9 +141,16 @@ export default function App() {
   );
 
   const doPrestige = (choice: Choice) => {
+    const points = prestigePoints(game.current.upgrades);
     if (!prestige(game.current, choice)) return;
     rate.current = totalRate(game.current);
     saveGame(game.current);
+    say(
+      <>
+        Prestige: <strong>{points.toLocaleString('en-US')}</strong> points into the {describeChoice(choice, NAMES)}.
+        Next run locks <strong>{METRICS[game.current.prestigeMetric].toLowerCase()}</strong>.
+      </>,
+    );
     // Straight to the chart, where the drop shows.
     setView('history');
   };
@@ -134,10 +166,10 @@ export default function App() {
   }, [purchase]);
 
   useEffect(() => {
-    if (!away) return;
-    const id = window.setTimeout(() => setAway(null), NOTICE_MS);
+    if (!message) return;
+    const id = window.setTimeout(() => setMessage(null), MESSAGE_MS);
     return () => window.clearTimeout(id);
-  }, [away]);
+  }, [message]);
 
   const simulateAway = (seconds: number) => {
     game.current.syncedAt -= seconds * 1000;
@@ -154,44 +186,48 @@ export default function App() {
     game.current = freshState();
     rate.current = 0;
     setSpeed(1);
+    setMessage(null);
     rerender();
   };
 
   const s = game.current;
+
+  // Announce prestige the moment it unlocks.
+  const best = useRef(s.bestLevel);
+  useEffect(() => {
+    if (best.current < PRESTIGE_MIN_LEVEL && s.bestLevel >= PRESTIGE_MIN_LEVEL)
+      say(<>A machine reached level {PRESTIGE_MIN_LEVEL}: prestige is unlocked.</>);
+    best.current = s.bestLevel;
+  }, [s.bestLevel, say]);
+
   const readyCount = NAMES.filter((_, i) => canBuy(s, i)).length;
   useEffect(() => {
     document.title = readyCount ? `(${readyCount}) Aetherworks` : 'Aetherworks';
   }, [readyCount]);
 
+  const tab = (v: View, label: string) => (
+    <button className={view === v ? 'on' : ''} onClick={() => setView(v)} aria-pressed={view === v}>
+      {label}
+    </button>
+  );
+
   return (
     <div className="app">
-      <header className="toolbar">
+      {/* Title and game age, or whatever the game has to say right now. */}
+      <header className={`toolbar${message ? ' has-message' : ''}`}>
         <h1>Aetherworks</h1>
         <span className="clock" title="Game time since start">
           {formatDuration(s.time)}
           {speed > 1 && <span className="warp"> {speedLabel(speed)}</span>}
         </span>
-        {/* History and cheats share the space above the machines. */}
-        <div className="view-toggle" role="group" aria-label="Show">
-          <button className={view === 'history' ? 'on' : ''} onClick={() => setView('history')}>
-            History
-          </button>
-          <button className={view === 'prestige' ? 'on' : ''} onClick={() => setView('prestige')}>
-            Prestige
-          </button>
-          <button className={view === 'cheats' ? 'on' : ''} onClick={() => setView('cheats')}>
-            Cheats
-          </button>
-        </div>
-        {away && (
-          <button className="notice" onClick={() => setAway(null)}>
-            Welcome back. You were away for <strong>{formatDuration(away.idleSeconds)}</strong>, which counts as{' '}
-            <strong>{formatDuration(away.gameSeconds)}</strong> of production.
+        {message && (
+          <button key={message.id} className="message" onClick={() => setMessage(null)} title="Dismiss">
+            {message.body}
           </button>
         )}
       </header>
 
-      {/* Content grows up from the bottom; the clickable machines stay docked there. */}
+      {/* Content grows up from the bottom; the machines and the tabs stay docked there. */}
       <main className="layout">
         {view === 'history' ? (
           <CreditChart
@@ -209,7 +245,8 @@ export default function App() {
           </div>
         ) : (
           <div className="slot scroll-slot">
-            <section className="panel controls" aria-label="Cheats">
+            <section className="panel cheats" aria-label="Cheats">
+              <span className="cheat-label">Speed</span>
               <div className="group">
                 {SPEEDS.map((v) => (
                   <button key={v} className={v === speed ? 'on' : ''} onClick={() => setSpeed(v)}>
@@ -217,6 +254,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              <span className="cheat-label">Skip</span>
               <div className="group">
                 {SKIPS.map(([label, secs]) => (
                   <button key={label} onClick={() => skip(secs)}>
@@ -224,16 +262,19 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <div className="group" title="Simulate being away (idle time is squared)">
-                <span className="group-label">Away</span>
+              <span className="cheat-label" title="Simulate being away (idle time is squared)">
+                Away
+              </span>
+              <div className="group">
                 {AWAY.map(([label, secs]) => (
                   <button key={label} onClick={() => simulateAway(secs)}>
                     {label}
                   </button>
                 ))}
               </div>
+              <span />
               <button className="reset" onClick={reset}>
-                Reset
+                Reset all progress
               </button>
             </section>
           </div>
@@ -249,6 +290,19 @@ export default function App() {
             pulses={pulses}
             onBuy={purchase}
           />
+          <nav className="tabs" aria-label="Views">
+            {tab('history', 'History')}
+            {tab('prestige', 'Prestige')}
+            {tab('cheats', 'Cheats')}
+            <button
+              className={`auto${auto ? ' on' : ''}`}
+              onClick={() => setAuto(!auto)}
+              aria-pressed={auto}
+              title="Auto buys the cheapest upgrade it can afford"
+            >
+              Auto {auto ? 'on' : 'off'}
+            </button>
+          </nav>
         </div>
       </main>
     </div>

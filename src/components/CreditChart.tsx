@@ -1,21 +1,21 @@
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { HistoryPoint } from '../game/engine';
 import { formatDuration, formatLog } from '../game/format';
 import { type MachineDef, NAMES } from '../game/machines';
-import { assign, type Choice, emptyPools, METRICS, multiplier, PAYOUT } from '../game/prestige';
+import { assign, type Choice, describeChoice, emptyPools, multiplier, PAYOUT } from '../game/prestige';
 
 interface Props {
   machines: MachineDef[];
   history: HistoryPoint[];
   purchases: [number, number][];
-  prestiges: [number, number, Choice][];
+  prestiges: [number, number, Choice | null][];
   now: number;
   credits: number;
   earned: number;
 }
 
 /** Tallest the chart gets; below MIN_HEIGHT there's no room and it is hidden. */
-const MAX_HEIGHT = 260;
+const MAX_HEIGHT = 480;
 const MIN_HEIGHT = 90;
 /** Padding + top border of the panel around the svg (see .slot .panel). */
 const PANEL_X = 24;
@@ -126,7 +126,7 @@ export function CreditChart({ machines, history, purchases, prestiges, now, cred
         if (i in levels) levels[i] += 1;
       } else {
         const [, pts, choice] = prestiges[prestiged++];
-        pools = assign(pools, choice, pts);
+        if (choice) pools = assign(pools, choice, pts);
         levels = machines.map(() => 0);
       }
     }
@@ -148,8 +148,9 @@ export function CreditChart({ machines, history, purchases, prestiges, now, cred
     return `M${upper.slice(1)}${lower}Z`;
   });
 
-  // Hover: nearest sample by x position.
+  // Hover: nearest sample by x position, with the production mix at that moment.
   let hover: HistoryPoint | null = null;
+  let hoverMix: number[] = [];
   if (hoverX !== null) {
     let best = Infinity;
     for (const p of points) {
@@ -159,7 +160,13 @@ export function CreditChart({ machines, history, purchases, prestiges, now, cred
         hover = p;
       }
     }
+    for (const [t, , shares] of cols) if (hover && t <= hover[0]) hoverMix = shares;
   }
+  const topShares = hoverMix
+    .map((share, i) => [share, i])
+    .filter(([share]) => share >= 0.05)
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, 3);
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -227,12 +234,8 @@ export function CreditChart({ machines, history, purchases, prestiges, now, cred
               <g key={k} className="prestige-mark">
                 <line x1={x(t)} x2={x(t)} y1={M.top} y2={M.top + plotH} />
                 <path d={`M${x(t) - 4},${M.top} h8 l-4,6 z`}>
-                  <title>{`Prestige, ${formatDuration(now - t)} ago: ${pts.toLocaleString('en-US')} points to ${
-                    choice.kind === 'machine'
-                      ? NAMES[choice.index]
-                      : choice.kind === 'metric'
-                        ? METRICS[choice.index]
-                        : `level ${choice.index}`
+                  <title>{`Prestige, ${formatDuration(now - t)} ago: ${pts.toLocaleString('en-US')} points${
+                    choice ? ` to ${describeChoice(choice, NAMES)}` : ''
                   }`}</title>
                 </path>
               </g>
@@ -253,6 +256,12 @@ export function CreditChart({ machines, history, purchases, prestiges, now, cred
               <div className="tooltip-k">{now - hover[0] < 1 ? 'now' : `${formatDuration(now - hover[0])} ago`}</div>
               <div>Earned {formatLog(hover[2])}</div>
               <div className="tooltip-sub">Held {hover[1] === null ? '0' : formatLog(hover[1])}</div>
+              {topShares.map(([share, i]) => (
+                <div key={i} className="tooltip-share" style={{ '--c': `var(--series-${i + 1})` } as CSSProperties}>
+                  <i />
+                  {NAMES[i]} {Math.round(share * 100)}%
+                </div>
+              ))}
             </div>
           )}
         </div>

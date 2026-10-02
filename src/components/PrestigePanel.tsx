@@ -4,11 +4,12 @@ import { formatLog } from '../game/format';
 import { NAMES } from '../game/machines';
 import {
   assign,
-  BOOST_EXPONENT,
   type Choice,
   choosableLevels,
+  describeChoice,
   METRICS,
   multiplier,
+  PAYOUT,
   poolValue,
   type Pools,
   PRESTIGE_MIN_LEVEL,
@@ -26,137 +27,153 @@ const formatPoints = (p: number) => (p < 1e6 ? Math.round(p).toLocaleString('en-
 /** "×2.4", "÷120"; blank when there is no boost. */
 function formatMult(m: number, metric: number): string {
   if (m < 1.005) return '';
-  const sign = metric === 1 ? '×' : '÷';
+  const sign = metric === PAYOUT ? '×' : '÷';
   if (m < 10) return sign + m.toFixed(1);
   if (m < 10_000) return sign + Math.round(m);
   return sign + formatLog(Math.log10(m));
 }
 
-const choiceLabel = (c: Choice) =>
-  c.kind === 'machine' ? NAMES[c.index] : c.kind === 'metric' ? METRICS[c.index] : `level ${c.index}`;
-
 /**
- * The prestige screen: 14 pools to put this run's points into, and a heatmap of
- * the boosts on the three highest levels (metrics × levels down, machines across).
- * Hovering or picking a pool previews its effect in the heatmap.
+ * The prestige screen. Each run locks one metric; its points go into one of the
+ * 8 machines or one of the 3 highest levels, for that metric only. The heatmap
+ * shows that metric's boosts (levels down, machines across); hovering or picking
+ * a pool previews the change.
  */
 export function PrestigePanel({ state, onPrestige }: Props) {
   const [picked, setPicked] = useState<Choice | null>(null);
   const [hovered, setHovered] = useState<Choice | null>(null);
+  const [help, setHelp] = useState(false);
 
+  const metric = state.prestigeMetric;
+  const metricName = METRICS[metric];
   const levels = choosableLevels(state.bestLevel);
-  if (levels.length === 0) {
-    return (
-      <section className="panel prestige">
-        <p className="prestige-intro">
-          Prestige unlocks when a machine reaches level {PRESTIGE_MIN_LEVEL}. Your best so far is level{' '}
-          {state.bestLevel}.
-        </p>
-      </section>
-    );
-  }
-
   const points = prestigePoints(state.upgrades);
   const ready = canPrestige(state);
-  const preview = hovered ?? picked;
-  const after: Pools | null = preview && ready ? assign(state.pools, preview, points) : null;
+  // A pick from an earlier run (another metric or levels) no longer applies.
+  const pick =
+    picked && picked.metric === metric && (picked.kind === 'machine' || levels.includes(picked.index)) ? picked : null;
+  const preview = hovered ?? pick;
   const pools = state.pools;
+  const after: Pools | null = preview && ready ? assign(pools, preview, points) : null;
 
-  // Heat is scaled to the strongest boost on screen, before or after the preview.
   let maxLog = Math.log10(2);
-  for (let metric = 0; metric < METRICS.length; metric++)
-    for (const L of levels)
-      for (let m = 0; m < NAMES.length; m++)
-        for (const p of after ? [pools, after] : [pools]) maxLog = Math.max(maxLog, Math.log10(multiplier(p, m, metric, L)));
+  for (const L of levels)
+    for (let m = 0; m < NAMES.length; m++)
+      for (const p of after ? [pools, after] : [pools]) maxLog = Math.max(maxLog, Math.log10(multiplier(p, m, metric, L)));
 
-  // A pool is picked by clicking and previewed by hovering; all its buttons light up together.
-  const option = (choice: Choice, extra = '') => ({
-    className: `option ${extra}${sameChoice(choice, picked) ? ' on' : ''}${sameChoice(choice, hovered) ? ' hover' : ''}`,
-    onClick: () => setPicked(sameChoice(choice, picked) ? null : choice),
-    onPointerEnter: () => setHovered(choice),
+  // Picked by clicking (again to unpick), previewed by hovering with a mouse.
+  const option = (choice: Choice, extra: string) => ({
+    className: `option ${extra}${sameChoice(choice, pick) ? ' on' : ''}${sameChoice(choice, hovered) ? ' hover' : ''}`,
+    onClick: () => setPicked(sameChoice(choice, pick) ? null : choice),
+    onPointerEnter: (e: React.PointerEvent) => e.pointerType === 'mouse' && setHovered(choice),
     onPointerLeave: () => setHovered(null),
     disabled: !ready,
   });
 
+  const status = !levels.length
+    ? `Unlocks at level ${PRESTIGE_MIN_LEVEL} (best so far: ${state.bestLevel})`
+    : ready
+      ? null
+      : 'Buy an upgrade to earn points';
+
   return (
     <section className="panel prestige">
       <div className="prestige-bar">
-        <p className="prestige-intro">
-          {ready ? (
+        <span className="metric-lock" title="Drawn at random for this run">
+          {metricName}
+        </span>
+        <span className="prestige-points">
+          {status ?? (
             <>
-              {state.upgrades} upgrades this run = <strong>{formatPoints(points)} points</strong>. Pick where they go:
-              a machine, a metric or a level.
+              {state.upgrades}² = <strong>{formatPoints(points)}</strong> pts
             </>
-          ) : (
-            <>Buy an upgrade this run to earn prestige points.</>
           )}
-        </p>
-        <button className="prestige-go" disabled={!ready || !picked} onClick={() => picked && onPrestige(picked)}>
-          {picked ? `Prestige: ${formatPoints(points)} to ${choiceLabel(picked)}` : 'Prestige'}
+        </span>
+        <button
+          className={`help-toggle${help ? ' on' : ''}`}
+          onClick={() => setHelp(!help)}
+          aria-expanded={help}
+          aria-label="How prestige works"
+        >
+          ?
+        </button>
+        <button className="prestige-go" disabled={!ready || !pick} onClick={() => pick && onPrestige(pick)}>
+          {pick ? `Prestige → ${pick.kind === 'machine' ? NAMES[pick.index] : `L${pick.index}`}` : 'Prestige'}
         </button>
       </div>
 
-      <div className="heatmap" role="grid" aria-label="Prestige boosts by metric, level and machine">
-        <div className="hm-corner" />
-        {NAMES.map((name, m) => (
-          <button
-            key={name}
-            {...option({ kind: 'machine', index: m })}
-            style={{ '--c': `var(--series-${m + 1})` } as CSSProperties}
-            title={`${name}: ${formatPoints(poolValue(pools, { kind: 'machine', index: m }))}`}
-          >
-            <span className="chip" />
-            <span className="pts">{formatPoints(poolValue(pools, { kind: 'machine', index: m }))}</span>
-          </button>
-        ))}
-
-        {METRICS.map((metricName, metric) => (
-          <Fragment key={metricName}>
-            <button
-              {...option({ kind: 'metric', index: metric }, 'hm-metric')}
-              style={{ gridRow: `span ${levels.length}` }}
-              title={`${metricName}: ${formatPoints(poolValue(pools, { kind: 'metric', index: metric }))}`}
-            >
-              {metricName}
-              <span className="pts">{formatPoints(poolValue(pools, { kind: 'metric', index: metric }))}</span>
-            </button>
-            {levels.map((L) => (
-              <Fragment key={L}>
+      {help ? (
+        <div className="prestige-help">
+          <p>
+            Each run locks one metric at random; this run it is <strong>{metricName.toLowerCase()}</strong>. Prestige
+            points are this run's upgrades squared. Put them all into one machine or one of your three highest levels,
+            for that metric only.
+          </p>
+          <p>
+            A cell's boost is its machine's pool × its level's pool, each 1 plus the points put in, and it acts as
+            boost<sup>1/4</sup>: cost and duration are divided by it, payout multiplied.
+          </p>
+          <p>Prestige resets machines and credits. Levels that drop out of the top three keep their boosts.</p>
+        </div>
+      ) : (
+        levels.length > 0 && (
+          <div className="heatmap" role="grid" aria-label={`${metricName} boosts by level and machine`}>
+            <div />
+            {NAMES.map((name, m) => {
+              const c: Choice = { kind: 'machine', index: m, metric };
+              return (
                 <button
-                  {...option({ kind: 'level', index: L }, 'hm-level')}
-                  title={`Level ${L}: ${formatPoints(poolValue(pools, { kind: 'level', index: L }))}`}
+                  key={name}
+                  {...option(c, 'hm-machine')}
+                  style={{ '--c': `var(--series-${m + 1})` } as CSSProperties}
+                  title={`${name}'s ${metricName.toLowerCase()} pool: ${formatPoints(poolValue(pools, c))}`}
                 >
-                  L{L}
-                  <span className="pts">{formatPoints(poolValue(pools, { kind: 'level', index: L }))}</span>
+                  <span className="chip" />
+                  <span className="pts">{formatPoints(poolValue(pools, c))}</span>
                 </button>
-                {NAMES.map((name, m) => {
-                  const now = multiplier(pools, m, metric, L);
-                  const next = after ? multiplier(after, m, metric, L) : now;
-                  const heat = Math.log10(next) / maxLog;
-                  const changed = next > now * 1.0001;
-                  return (
-                    <div
-                      key={name}
-                      role="gridcell"
-                      className={`hm-cell${changed ? ' changed' : ''}${heat > 0.55 ? ' strong' : ''}`}
-                      style={{ '--heat': `${Math.round(heat * 100)}%` } as CSSProperties}
-                      title={`${name}, level ${L}, ${metricName.toLowerCase()}: ${formatMult(now, metric) || 'no boost'}${
-                        changed ? ` → ${formatMult(next, metric)}` : ''
-                      }`}
-                    >
-                      {formatMult(next, metric)}
-                    </div>
-                  );
-                })}
-              </Fragment>
-            ))}
-          </Fragment>
-        ))}
-      </div>
-      <p className="prestige-foot">
-        Boost = machine × metric × level, each 1 plus its points; effect boost
-        <sup>1/{Math.round(1 / BOOST_EXPONENT)}</sup>. Cost and duration are divided by it, payout multiplied. Prestige resets machines and credits; lower levels keep their boosts.
-      </p>
+              );
+            })}
+            {levels.map((L) => {
+              const c: Choice = { kind: 'level', index: L, metric };
+              return (
+                <Fragment key={L}>
+                  <button
+                    {...option(c, 'hm-level')}
+                    title={`Level ${L}'s ${metricName.toLowerCase()} pool: ${formatPoints(poolValue(pools, c))}`}
+                  >
+                    L{L}
+                    <span className="pts">{formatPoints(poolValue(pools, c))}</span>
+                  </button>
+                  {NAMES.map((name, m) => {
+                    const now = multiplier(pools, m, metric, L);
+                    const next = after ? multiplier(after, m, metric, L) : now;
+                    const heat = Math.log10(next) / maxLog;
+                    const changed = next > now * 1.0001;
+                    return (
+                      <div
+                        key={name}
+                        role="gridcell"
+                        className={`hm-cell${changed ? ' changed' : ''}${heat > 0.55 ? ' strong' : ''}`}
+                        style={{ '--heat': `${Math.round(heat * 100)}%` } as CSSProperties}
+                        title={`${name}, level ${L}: ${formatMult(now, metric) || 'no boost'}${
+                          changed ? ` → ${formatMult(next, metric)}` : ''
+                        }`}
+                      >
+                        {formatMult(next, metric)}
+                      </div>
+                    );
+                  })}
+                </Fragment>
+              );
+            })}
+          </div>
+        )
+      )}
+      {!help && pick && ready && (
+        <p className="prestige-note">
+          {formatPoints(points)} points into the {describeChoice(pick, NAMES)}. Machines and credits reset.
+        </p>
+      )}
     </section>
   );
 }

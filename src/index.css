@@ -71,7 +71,7 @@ kbd {
   color: var(--text-muted);
 }
 
-/* toolbar */
+/* header: title and age, or a message */
 
 .app {
   min-height: 100dvh;
@@ -84,10 +84,10 @@ kbd {
   top: 0;
   z-index: 10;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
-  padding: 10px 16px;
+  min-height: 44px;
+  padding: 6px 16px;
   background: var(--surface-1);
   border-bottom: 1px solid var(--border);
 }
@@ -96,31 +96,57 @@ kbd {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .clock {
   font-family: var(--mono);
   color: var(--text-secondary);
   min-width: 7ch;
-}
-
-.view-toggle {
-  margin-left: auto;
+  white-space: nowrap;
 }
 
 .clock .warp {
   color: var(--text-primary);
 }
 
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-end;
-  gap: 8px;
+.message {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 0;
+  border-left: 3px solid var(--text-primary);
+  border-radius: 4px;
+  background: var(--grid);
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  animation: message-in 0.25s ease-out;
 }
 
-.group,
-.view-toggle {
+.message strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+/* On narrow screens a message takes the whole header. */
+@media (max-width: 640px) {
+  .toolbar.has-message h1,
+  .toolbar.has-message .clock {
+    display: none;
+  }
+}
+
+/* segmented buttons (cheats) */
+
+.group {
   display: flex;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -128,30 +154,22 @@ kbd {
 }
 
 .group button,
-.view-toggle button,
 .reset {
+  flex: 1;
+  min-height: 36px;
   border: 0;
   background: transparent;
   padding: 4px 8px;
-  font: 12px var(--mono);
+  font: 13px var(--mono);
   color: var(--text-secondary);
   cursor: pointer;
 }
 
-.group-label {
-  padding: 4px 8px;
-  font: 12px var(--mono);
-  color: var(--text-muted);
-  border-right: 1px solid var(--border);
-}
-
-.group button + button,
-.view-toggle button + button {
+.group button + button {
   border-left: 1px solid var(--border);
 }
 
 .group button:hover,
-.view-toggle button:hover,
 .reset:hover {
   background: var(--grid);
 }
@@ -161,37 +179,26 @@ kbd {
   color: var(--surface-1);
 }
 
-/* Quieter than the cheat buttons: a lifted tab, not a bright block. */
-.view-toggle button.on {
-  background: var(--border);
-  color: var(--text-primary);
+/* Labels on the left, each row of buttons stretched across the rest. */
+.cheats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: center;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.cheat-label {
+  font: 12px var(--mono);
+  color: var(--text-muted);
 }
 
 .reset {
+  justify-self: start;
+  flex: none;
+  padding: 4px 16px;
   border: 1px solid var(--border);
   border-radius: 6px;
-}
-
-.notice {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  display: block;
-  width: 100%;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
-  padding: 8px 16px;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  background: var(--grid);
-  color: var(--text-secondary);
-  text-align: center;
-  cursor: pointer;
-}
-
-.notice strong {
-  color: var(--text-primary);
-  font-weight: 600;
 }
 
 /* layout */
@@ -202,33 +209,78 @@ kbd {
   flex-direction: column;
 }
 
-/* The chart gets whatever height the toolbar and dock leave, anchored to the
-   dock; CreditChart shrinks to fit it, or hides itself when it is too short. */
+/* The space between header and dock. Its panel fills it; CreditChart sizes the
+   chart to it, or hides itself when it is too short. */
 .slot {
   flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   overflow: hidden;
+}
+
+.slot > .panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.slot > .panel.cheats {
+  display: grid;
 }
 
 /* Cheats and prestige may not fit on very short screens; let them scroll rather than clip. */
 .scroll-slot {
   overflow-y: auto;
-  /* flex-end would clip the top out of scroll reach; push the panel down instead. */
-  justify-content: flex-start;
 }
 
-.scroll-slot > .panel {
-  margin-top: auto;
-}
-
-/* Share bar + machines stay on screen at the bottom. */
+/* Machines and tabs stay on screen at the bottom. */
 .dock {
   position: sticky;
   bottom: 0;
   z-index: 5;
+}
+
+/* Big, thumb-reachable view tabs under the machines. */
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+  background: var(--surface-1);
+  border-top: 1px solid var(--border);
+}
+
+.tabs button {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  font: 600 13px var(--font);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tabs button:hover {
+  background: var(--grid);
+}
+
+.tabs button.on {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.tabs .auto {
+  border-color: var(--border);
+  font-family: var(--mono);
+  font-weight: 400;
+}
+
+.tabs .auto.on {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--surface-1);
 }
 
 /* Panels run edge to edge, separated by hairlines. */
@@ -297,14 +349,15 @@ kbd {
   width: min(56px, 80%);
   transform: translateX(-50%);
   border-radius: 4px 4px 0 0;
-  background: var(--c);
-  opacity: 0.3;
+  /* Out of reach: a pale fill, but the outline keeps the machine's true colour. */
+  background: color-mix(in srgb, var(--c) 22%, var(--surface-1));
+  box-shadow: inset 0 0 0 2px var(--c);
   transition:
     height 0.35s ease-out,
-    opacity 0.2s;
+    background-color 0.2s;
 }
 
-/* Same box as the bar, but not faded with it, so the pulse reads on any bar. */
+/* Same box as the bar, on top of it, so the pulse reads on any bar. */
 .pulse-track {
   position: absolute;
   bottom: 0;
@@ -335,7 +388,7 @@ kbd {
 }
 
 .bar-slot.ready .bar {
-  opacity: 1;
+  background: var(--c);
 }
 
 .bar-slot.ready:hover .bar {
@@ -372,29 +425,60 @@ kbd {
 
 .prestige-bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
-.prestige-intro {
-  flex: 1 1 280px;
-  margin: 0;
-  color: var(--text-secondary);
+/* The metric this run can improve. */
+.metric-lock {
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--heat-hue);
+  color: #fff;
+  font: 600 12px var(--mono);
 }
 
-.prestige-intro strong {
+.prestige-points {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.prestige-points strong {
   color: var(--text-primary);
 }
 
+.help-toggle {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: none;
+  font: 600 13px var(--mono);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.help-toggle.on {
+  background: var(--text-primary);
+  color: var(--surface-1);
+}
+
 .prestige-go {
+  min-height: 32px;
   border: 1px solid var(--text-primary);
   border-radius: 6px;
   background: var(--text-primary);
   color: var(--surface-1);
-  padding: 5px 12px;
+  padding: 4px 12px;
   font: 600 12px var(--mono);
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -405,22 +489,41 @@ kbd {
   cursor: default;
 }
 
-/* Metric and level labels on the left, one column per machine. */
+.prestige-help {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.prestige-help p {
+  margin: 0 0 8px;
+}
+
+.prestige-help strong {
+  color: var(--text-primary);
+}
+
+.prestige-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Level pools down the left, one column per machine. */
 .heatmap {
   display: grid;
-  grid-template-columns: auto auto repeat(8, minmax(0, 1fr));
-  gap: 2px;
+  grid-template-columns: auto repeat(8, minmax(0, 1fr));
+  gap: 3px;
   font: 11px var(--mono);
 }
 
 .heatmap .option {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
+  gap: 6px;
   min-width: 0;
-  padding: 3px 6px;
+  min-height: 32px;
+  padding: 2px 6px;
   border: 1px solid transparent;
   border-radius: 4px;
   background: none;
@@ -449,8 +552,9 @@ kbd {
   color: var(--text-muted);
 }
 
-.hm-corner {
-  grid-column: span 2;
+.heatmap .hm-machine {
+  flex-direction: column;
+  gap: 2px;
 }
 
 .heatmap .chip {
@@ -461,24 +565,12 @@ kbd {
   background: var(--c);
 }
 
-.hm-metric {
-  grid-column: 1;
-  margin-top: 6px;
-}
-
-.heatmap .option.hm-level {
-  grid-column: 2;
-  flex-direction: row;
-  gap: 6px;
-  padding: 1px 6px;
-}
-
 .hm-cell {
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: 22px;
+  height: 32px;
   border-radius: 3px;
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--heat-hue) var(--heat), var(--surface-0));
@@ -497,10 +589,14 @@ kbd {
   border-style: dashed;
 }
 
-.prestige-foot {
-  margin: 10px 0 0;
-  font-size: 11px;
-  color: var(--text-muted);
+@media (max-width: 640px) {
+  .heatmap .option {
+    padding: 2px 3px;
+  }
+  .heatmap .option .pts,
+  .hm-cell {
+    font-size: 10px;
+  }
 }
 
 /* chart */
@@ -555,7 +651,21 @@ kbd {
 }
 
 .share-layer {
-  opacity: 0.85;
+  opacity: 1;
+}
+
+.tooltip-share {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.tooltip-share i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--c);
 }
 
 .crosshair line {
