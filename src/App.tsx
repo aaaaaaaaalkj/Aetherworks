@@ -234,25 +234,21 @@ export default function App() {
   );
 
   return (
-    <div className="app">
+    <div className={`app${fullscreen.on ? ' fs' : ''}`}>
       {/* Title and game age, or whatever the game has to say right now. */}
       <header className={`toolbar${message ? ' has-message' : ''}`}>
         <h1>Aetherworks</h1>
         {/* Nothing while an upgrade is affordable. Long waits also show the idle time that would cover them. */}
         <span className="estimate">
-          {wait !== null && wait > 0 && (
-            <>
-              <span title="Until the next upgrade can be bought, at the current speed">
-                next {formatDuration(wait / speed)}
-              </span>
-              {wait > SHOW_IDLE_AFTER_S && (
-                <span className="idle" title="Or stay away this long: idle time is squared">
-                  {' · '}idle {formatDuration(gameToIdleSeconds(wait))}
-                </span>
-              )}
-            </>
+          <span className="next" title="Until the next upgrade can be bought, at the current speed">
+            {wait !== null && wait > 0 && `next ${formatDuration(wait / speed)}`}
+            {speed > 1 && <span className="warp"> {speedLabel(speed)}</span>}
+          </span>
+          {wait !== null && wait > SHOW_IDLE_AFTER_S && (
+            <span className="idle" title="Or stay away this long: idle time is squared">
+              idle {formatDuration(gameToIdleSeconds(wait))}
+            </span>
           )}
-          {speed > 1 && <span className="warp"> {speedLabel(speed)}</span>}
         </span>
         {message && (
           <button key={message.id} className="message" onClick={() => setMessage(null)} title="Dismiss">

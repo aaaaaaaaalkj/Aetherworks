@@ -113,6 +113,10 @@ kbd {
   color: var(--text-muted);
 }
 
+.estimate .idle::before {
+  content: ' · ';
+}
+
 .estimate .warp {
   color: var(--text-primary);
 }
@@ -134,6 +138,58 @@ kbd {
   background: none;
   color: var(--text-secondary);
   cursor: pointer;
+}
+
+/* Full screen on a phone: the camera sits in the middle of the header and the
+   corners are rounded. The header keeps its middle free (the estimate splits
+   around it, a message moves to a row of its own), and the header and tabs
+   come in from the edges. Safe-area insets are used where the phone reports them. */
+.app.fs {
+  --fs-side: 24px;
+  --camera-gap: 56px;
+}
+
+.app.fs .toolbar {
+  display: grid;
+  grid-template-columns: 1fr var(--camera-gap) 1fr auto;
+  padding: max(6px, env(safe-area-inset-top)) max(var(--fs-side), env(safe-area-inset-right)) 6px
+    max(var(--fs-side), env(safe-area-inset-left));
+}
+
+.app.fs .toolbar h1 {
+  display: none;
+}
+
+.app.fs .toolbar .estimate {
+  display: contents;
+}
+
+.app.fs .estimate .next {
+  grid-column: 1;
+}
+
+.app.fs .estimate .idle {
+  grid-column: 3;
+  text-align: right;
+}
+
+.app.fs .estimate .idle::before {
+  content: none;
+}
+
+.app.fs .fullscreen {
+  grid-column: 4;
+}
+
+.app.fs .message {
+  grid-row: 2;
+  grid-column: 1 / -1;
+}
+
+.app.fs .tabs {
+  padding-left: max(var(--fs-side), env(safe-area-inset-left));
+  padding-right: max(var(--fs-side), env(safe-area-inset-right));
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
 .fullscreen:hover {
