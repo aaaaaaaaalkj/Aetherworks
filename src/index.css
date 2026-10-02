@@ -372,10 +372,43 @@ kbd {
   color: var(--text-primary);
 }
 
+.tabs button {
+  display: grid;
+  place-items: center;
+}
+
+.tabs svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tabs svg .fill {
+  fill: currentColor;
+  stroke: none;
+}
+
 .tabs .auto {
   border-color: var(--border);
-  font-family: var(--mono);
-  font-weight: 400;
+}
+
+.tabs .auto.on svg {
+  fill: currentColor;
+}
+
+/* The flight draws edge to edge. */
+.slot > .panel.flight {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+
+.flight canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
 }
 
 .tabs .auto.on {

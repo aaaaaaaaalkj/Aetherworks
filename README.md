@@ -11,7 +11,8 @@ A minimal idle game about eight machines that turn time into credits.
 - The header shows how long until the next upgrade can be bought (nothing while one already can). For waits over an hour it also shows how long you would have to stay away instead, since idle time counts squared. The button on the right switches to full screen where the browser allows it.
 - **Auto** (on by default, at the bottom right) buys the cheapest upgrade it can afford. It pauses when you come back after an absence, so you can spend what built up yourself.
 - Your credits are a water line on the same log scale. A bar that is fully under water can be bought (click it or press `1`–`8`). Buying spends the credits, the water drops, and the bar grows to the next level's cost.
-- **Credits over time** plots credits against time since the start, both on log scales, so the past compresses. The label at its left end is the game's age. Coloured ticks below it mark every purchase, and a dashed line marks every prestige, where the run's total drops back to the start. The area under the total is coloured by each machine's share of production at that moment, so the right edge shows today's mix; hover it to see the leading machines.
+- **Flight**, the first tab, shows the balance as a glowing dot flying through a log-scaled grid, trailing its path. It follows the balance on a spring, so deliveries and purchases bend its course rather than jolt it. Each built machine circles the dot once per pulse and throws sparks in its colour when it pays out; purchases send out rings, and a prestige sends the dot diving back to the start.
+- The tabs along the bottom are Flight, Prestige, Cheats and Auto (the bolt). The older **Credits over time** chart is still in the code but has no tab for now.
 
 ## The economy
 
@@ -36,7 +37,7 @@ Every pool starts at 1 and grows by the points put into it. For each metric, the
 
 The heatmap shows the locked metric's boosts on the three highest levels, and hovering or picking a pool previews what it would raise. Levels that fall out of the top three keep their boosts but can no longer be chosen. **?** explains the rules in the game.
 
-Prestige resets every machine to level 0 and the credits to the starting 1. Game time, the history and the slot deal carry on, and the chart marks each prestige.
+Prestige resets every machine to level 0 and the credits to the starting 1. Game time, the history and the slot deal carry on.
 
 ## Idle time
 

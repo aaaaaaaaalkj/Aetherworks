@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { CreditChart } from './components/CreditChart';
+import { Flight, type FlightMemory } from './components/Flight';
 import { PrestigePanel } from './components/PrestigePanel';
 import { Tank } from './components/Tank';
 import {
@@ -52,7 +53,30 @@ const MIN_VISIBLE_PULSE_S = 0.5;
 /** Coming back after at least this long gets a welcome-back message and pauses auto. */
 const NOTICE_MIN_IDLE_S = 60;
 
-type View = 'history' | 'prestige' | 'cheats';
+// History is kept but has no tab for now; Flight replaces it.
+type View = 'flight' | 'history' | 'prestige' | 'cheats';
+
+/** 20×20 line icons for the tabs. */
+const ICONS: Record<'flight' | 'prestige' | 'cheats' | 'auto', ReactNode> = {
+  // A rising path ending in a dot.
+  flight: (
+    <>
+      <path d="M2 16c4 0 5-6 9-7s4-4 5-5" />
+      <circle cx="16.5" cy="4" r="2" className="fill" />
+    </>
+  ),
+  // Coming round again.
+  prestige: (
+    <>
+      <path d="M16 10a6 6 0 1 1-2-4.5" />
+      <path d="M15 2.5v3.5h-3.5" />
+    </>
+  ),
+  // Fast forward.
+  cheats: <path d="M3 5l6 5-6 5zM10 5l6 5-6 5z" />,
+  // A bolt: buys on its own.
+  auto: <path d="M11 2L4 11h5l-1 7 7-9h-5z" />,
+};
 interface Message {
   id: number;
   body: ReactNode;
@@ -81,7 +105,7 @@ export default function App() {
   const game = useRef(boot);
   const rate = useRef(totalRate(boot));
   const [message, setMessage] = useState<Message | null>(null);
-  const [view, setView] = useState<View>('history');
+  const [view, setView] = useState<View>('flight');
   const speedRef = useRef(1);
   const [speed, setSpeedState] = useState(1);
   const autoRef = useRef(true);
@@ -171,8 +195,8 @@ export default function App() {
         Next run locks <strong>{METRICS[game.current.prestigeMetric].toLowerCase()}</strong>.
       </>,
     );
-    // Straight to the chart, where the drop shows.
-    setView('history');
+    // Straight to the flight, where the prestige lands.
+    setView('flight');
   };
 
   useEffect(() => {
@@ -227,11 +251,25 @@ export default function App() {
     document.title = readyCount ? `(${readyCount}) Aetherworks` : 'Aetherworks';
   }, [readyCount]);
 
-  const tab = (v: View, label: string) => (
-    <button className={view === v ? 'on' : ''} onClick={() => setView(v)} aria-pressed={view === v}>
-      {label}
+  const icon = (name: keyof typeof ICONS) => (
+    <svg viewBox="0 0 20 20" width="22" height="22" aria-hidden="true">
+      {ICONS[name]}
+    </svg>
+  );
+  const tab = (v: View & keyof typeof ICONS, label: string) => (
+    <button
+      className={view === v ? 'on' : ''}
+      onClick={() => setView(v)}
+      aria-pressed={view === v}
+      aria-label={label}
+      title={label}
+    >
+      {icon(v)}
     </button>
   );
+  const flightMemory = useRef<FlightMemory | null>(null);
+  const getGame = useCallback(() => game.current, []);
+  const getRate = useCallback(() => rate.current, []);
 
   return (
     <div className={`app${fullscreen.on ? ' fs' : ''}`}>
@@ -277,7 +315,9 @@ export default function App() {
 
       {/* Content grows up from the bottom; the machines and the tabs stay docked there. */}
       <main className="layout">
-        {view === 'history' ? (
+        {view === 'flight' ? (
+          <Flight game={getGame} rate={getRate} pulses={pulses} memory={flightMemory} />
+        ) : view === 'history' ? (
           <CreditChart
             machines={machinesOf(s)}
             history={s.history}
@@ -340,16 +380,17 @@ export default function App() {
             onBuy={purchase}
           />
           <nav className="tabs" aria-label="Views">
-            {tab('history', 'History')}
+            {tab('flight', 'Flight')}
             {tab('prestige', 'Prestige')}
             {tab('cheats', 'Cheats')}
             <button
               className={`auto${auto ? ' on' : ''}`}
               onClick={() => setAuto(!auto)}
               aria-pressed={auto}
-              title="Auto buys the cheapest upgrade it can afford"
+              aria-label={`Auto ${auto ? 'on' : 'off'}`}
+              title={`Auto ${auto ? 'on' : 'off'}: buys the cheapest upgrade it can afford`}
             >
-              Auto {auto ? 'on' : 'off'}
+              {icon('auto')}
             </button>
           </nav>
         </div>
